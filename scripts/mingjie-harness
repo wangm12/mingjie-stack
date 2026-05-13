@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 from pathlib import Path
+import re
+import shutil
 import sys
 
 
@@ -25,6 +27,7 @@ GITIGNORE_ENTRIES = [
     "docs/mingjie-stack/STATE.md",
     "docs/mingjie-stack/runs/",
 ]
+PINNED_FILE = "PINNED"
 
 
 def now() -> str:
@@ -87,6 +90,10 @@ def run_dir(root: Path, run_id: str) -> Path:
     return harness_dir(root) / "runs" / run_id
 
 
+def runs_dir(root: Path) -> Path:
+    return harness_dir(root) / "runs"
+
+
 def write_state(
     root: Path,
     *,
@@ -117,6 +124,95 @@ def create_run(root: Path, run_id: str) -> Path:
     for name in STANDARD_RUN_FILES:
         write_if_missing(directory / name, f"# {name.removesuffix('.md').title()}\n\n")
     return directory
+
+
+def run_directories(root: Path) -> list[Path]:
+    directory = runs_dir(root)
+    if not directory.exists():
+        return []
+    return sorted(
+        [
+            path
+            for path in directory.iterdir()
+            if path.is_dir() and path.name != "archive"
+        ],
+        key=lambda path: path.name,
+    )
+
+
+def is_pinned(directory: Path) -> bool:
+    return (directory / PINNED_FILE).exists()
+
+
+def month_for_run(run_id: str) -> str:
+    match = re.match(r"^(\d{4})(\d{2})", run_id)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}"
+    return datetime.now().astimezone().strftime("%Y-%m")
+
+
+def first_nonempty_line(path: Path) -> str:
+    if not path.exists():
+        return ""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if text and not text.startswith("#"):
+            return text
+    return ""
+
+
+def run_summary(directory: Path) -> str:
+    run_id = directory.name
+    evidence = directory / "EVIDENCE.md"
+    accept = first_nonempty_line(directory / "ACCEPT.md")
+    verify = first_nonempty_line(directory / "VERIFY.md")
+    evidence_lines = []
+    if evidence.exists():
+        for line in evidence.read_text(encoding="utf-8").splitlines():
+            text = line.strip()
+            if text.startswith("- Command:") or text.startswith("- Result:"):
+                evidence_lines.append(text)
+
+    lines = [
+        f"## {run_id}",
+        "",
+        f"- Run: `{run_id}`",
+        f"- Pinned: {'yes' if is_pinned(directory) else 'no'}",
+    ]
+    if accept:
+        lines.append(f"- Accept: {accept}")
+    if verify:
+        lines.append(f"- Verify: {verify}")
+    lines.extend(evidence_lines or ["- Evidence: none recorded"])
+    lines.append("")
+    return "\n".join(lines)
+
+
+def append_unique(path: Path, block: str, marker: str) -> bool:
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    if marker in existing:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    path.write_text(existing + block + "\n", encoding="utf-8")
+    return True
+
+
+def summarize_run(root: Path, run_id: str) -> bool:
+    directory = run_dir(root, run_id)
+    if not directory.exists():
+        raise SystemExit(f"run not found: {run_id}")
+    base = ensure_harness(root)
+    block = run_summary(directory)
+    index_block = f"- `{run_id}`: summarized in `runs/archive/{month_for_run(run_id)}.md`\n"
+    changed_index = append_unique(base / "RUNS_INDEX.md", index_block, f"`{run_id}`")
+    changed_archive = append_unique(
+        runs_dir(root) / "archive" / f"{month_for_run(run_id)}.md",
+        block,
+        f"## {run_id}",
+    )
+    return changed_index or changed_archive
 
 
 def command_init(args: argparse.Namespace) -> int:
@@ -196,6 +292,73 @@ def command_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_runs_list(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    directories = run_directories(root)
+    if not directories:
+        print("No runs found")
+        return 0
+    for directory in directories:
+        suffix = " PINNED" if is_pinned(directory) else ""
+        print(f"{directory.name}{suffix}")
+    return 0
+
+
+def command_runs_pin(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    directory = run_dir(root, args.run_id)
+    if not directory.exists():
+        raise SystemExit(f"run not found: {args.run_id}")
+    (directory / PINNED_FILE).write_text(f"pinned_at: {now()}\n", encoding="utf-8")
+    print(f"Pinned {args.run_id}")
+    return 0
+
+
+def command_runs_unpin(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    marker = run_dir(root, args.run_id) / PINNED_FILE
+    if marker.exists():
+        marker.unlink()
+    print(f"Unpinned {args.run_id}")
+    return 0
+
+
+def command_runs_summarize(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    run_ids = [args.run_id] if args.run_id else [path.name for path in run_directories(root)]
+    for run_id in run_ids:
+        summarize_run(root, run_id)
+        print(f"Summarized {run_id}")
+    return 0
+
+
+def prune_candidates(root: Path, keep: int) -> list[Path]:
+    directories = run_directories(root)
+    unpinned = [directory for directory in directories if not is_pinned(directory)]
+    keep_set = set(unpinned[-keep:]) if keep > 0 else set()
+    return [directory for directory in unpinned if directory not in keep_set]
+
+
+def command_runs_prune(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    candidates = prune_candidates(root, args.keep)
+    if not candidates:
+        print("No runs to prune")
+        return 0
+
+    for directory in candidates:
+        summarize_run(root, directory.name)
+        if args.yes:
+            shutil.rmtree(directory)
+            print(f"Pruned {directory.name}")
+        else:
+            print(f"Would prune {directory.name}")
+
+    if not args.yes:
+        print("Dry run only. Re-run with --yes to delete summarized raw run directories.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mingjie-harness")
     parser.add_argument("--root", default=".", help="Project root (default: current directory)")
@@ -227,6 +390,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = subparsers.add_parser("status", help="Show Harness status")
     status.set_defaults(func=command_status)
+
+    runs = subparsers.add_parser("runs", help="Manage run history")
+    runs_subparsers = runs.add_subparsers(dest="runs_command", required=True)
+
+    runs_list = runs_subparsers.add_parser("list", help="List run directories")
+    runs_list.set_defaults(func=command_runs_list)
+
+    runs_summarize = runs_subparsers.add_parser("summarize", help="Summarize runs into RUNS_INDEX and monthly archive")
+    runs_summarize.add_argument("--run-id", default="", help="Specific run id to summarize")
+    runs_summarize.set_defaults(func=command_runs_summarize)
+
+    runs_prune = runs_subparsers.add_parser("prune", help="Summarize and prune old unpinned runs")
+    runs_prune.add_argument("--keep", type=int, default=10, help="Number of newest unpinned runs to keep")
+    runs_prune.add_argument("--dry-run", action="store_true", help="Preview pruning; default unless --yes is used")
+    runs_prune.add_argument("--yes", action="store_true", help="Delete summarized raw run directories")
+    runs_prune.set_defaults(func=command_runs_prune)
+
+    runs_pin = runs_subparsers.add_parser("pin", help="Prevent a run from being pruned")
+    runs_pin.add_argument("run_id")
+    runs_pin.set_defaults(func=command_runs_pin)
+
+    runs_unpin = runs_subparsers.add_parser("unpin", help="Allow a run to be pruned")
+    runs_unpin.add_argument("run_id")
+    runs_unpin.set_defaults(func=command_runs_unpin)
 
     return parser
 

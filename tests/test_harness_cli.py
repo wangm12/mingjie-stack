@@ -90,6 +90,78 @@ class HarnessCliTests(unittest.TestCase):
             self.assertIn(".mingjie/STATE.md", result.stdout)
             self.assertIn("current_stage: review", result.stdout)
 
+    def test_runs_list_reports_pinned_and_unpinned_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            self.run_harness("start-run", "--id", "20260501-older", cwd=project)
+            self.run_harness("start-run", "--id", "20260502-newer", cwd=project)
+            self.run_harness("runs", "pin", "20260501-older", cwd=project)
+
+            result = self.run_harness("runs", "list", cwd=project)
+
+            self.assertIn("20260501-older", result.stdout)
+            self.assertIn("PINNED", result.stdout)
+            self.assertIn("20260502-newer", result.stdout)
+
+    def test_runs_summarize_writes_index_and_monthly_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            self.run_harness("start-run", "--id", "20260501-old", cwd=project)
+            self.run_harness(
+                "append-evidence",
+                "--run-id",
+                "20260501-old",
+                "--title",
+                "tests",
+                "--command",
+                "python3 -m unittest discover tests",
+                "--result",
+                "OK",
+                cwd=project,
+            )
+
+            result = self.run_harness("runs", "summarize", "--run-id", "20260501-old", cwd=project)
+
+            index = (project / "docs" / "mingjie-stack" / "RUNS_INDEX.md").read_text(encoding="utf-8")
+            archive = (
+                project
+                / "docs"
+                / "mingjie-stack"
+                / "runs"
+                / "archive"
+                / "2026-05.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("20260501-old", result.stdout)
+            self.assertIn("20260501-old", index)
+            self.assertIn("Result: OK", archive)
+            self.assertIn("python3 -m unittest discover tests", archive)
+
+    def test_runs_prune_dry_run_keeps_recent_and_pinned_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            for run_id in ["20260501-old", "20260502-pinned", "20260503-new"]:
+                self.run_harness("start-run", "--id", run_id, cwd=project)
+            self.run_harness("runs", "pin", "20260502-pinned", cwd=project)
+
+            result = self.run_harness("runs", "prune", "--keep", "1", "--dry-run", cwd=project)
+
+            self.assertIn("Would prune 20260501-old", result.stdout)
+            self.assertNotIn("Would prune 20260502-pinned", result.stdout)
+            self.assertTrue((project / "docs" / "mingjie-stack" / "runs" / "20260501-old").exists())
+
+    def test_runs_prune_deletes_unpinned_old_runs_after_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            for run_id in ["20260501-old", "20260502-new"]:
+                self.run_harness("start-run", "--id", run_id, cwd=project)
+
+            self.run_harness("runs", "prune", "--keep", "1", "--yes", cwd=project)
+
+            self.assertFalse((project / "docs" / "mingjie-stack" / "runs" / "20260501-old").exists())
+            self.assertTrue((project / "docs" / "mingjie-stack" / "runs" / "20260502-new").exists())
+            index = (project / "docs" / "mingjie-stack" / "RUNS_INDEX.md").read_text(encoding="utf-8")
+            self.assertIn("20260501-old", index)
+
 
 if __name__ == "__main__":
     unittest.main()

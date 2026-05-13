@@ -273,6 +273,7 @@ For normal, large, risky, or long-running work, Mingjie Harness may persist proj
 ```text
 docs/mingjie-stack/
   PROJECT.md
+  RUNS_INDEX.md
   STATE.md
   RUNBOOK.md
   ROADMAP.md
@@ -294,6 +295,8 @@ docs/mingjie-stack/
     VERIFY.md
     ACCEPT.md
     LESSONS.md
+    archive/
+      2026-05.md
 ```
 
 Project facts and run evidence can be written automatically. User-scope lessons, org profiles, and global skill changes require explicit approval. New writes use `docs/mingjie-stack/`; legacy `.mingjie/STATE.md` is still read for resume compatibility.
@@ -307,6 +310,19 @@ mingjie-harness update-state --run-id <id> --stage build --next review
 mingjie-harness append-evidence --run-id <id> --title tests --command "python3 -m unittest discover tests" --result OK
 mingjie-harness status
 ```
+
+Keep run history small with:
+
+```bash
+mingjie-harness runs list
+mingjie-harness runs summarize --run-id <id>
+mingjie-harness runs prune --keep 10        # dry-run preview by default
+mingjie-harness runs prune --keep 10 --yes  # summarize then delete old raw run dirs
+mingjie-harness runs pin <id>
+mingjie-harness runs unpin <id>
+```
+
+`runs prune` never deletes a run containing `PINNED`. Pruned runs are summarized into `RUNS_INDEX.md` and `runs/archive/YYYY-MM.md` before raw artifacts are removed.
 
 Volatile state is ignored by default:
 

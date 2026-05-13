@@ -16,6 +16,7 @@ Default writable location:
 ```text
 docs/mingjie-stack/
   PROJECT.md
+  RUNS_INDEX.md
   STATE.md
   RUNBOOK.md
   ROADMAP.md
@@ -29,6 +30,7 @@ docs/mingjie-stack/
     VERIFY.md
     ACCEPT.md
     LESSONS.md
+    archive/YYYY-MM.md
 ```
 
 Use `mingjie-harness init` to create this directory and add ignore rules for volatile state. New writes use `docs/mingjie-stack/`; legacy `.mingjie/STATE.md` is read only for resume compatibility.
@@ -102,6 +104,12 @@ mingjie-harness start-run
 mingjie-harness update-state --run-id <id> --stage build --next review
 mingjie-harness append-evidence --run-id <id> --title tests --command "python3 -m unittest discover tests" --result OK
 mingjie-harness status
+mingjie-harness runs list
+mingjie-harness runs summarize --run-id <id>
+mingjie-harness runs prune --keep 10
+mingjie-harness runs prune --keep 10 --yes
+mingjie-harness runs pin <id>
+mingjie-harness runs unpin <id>
 ```
 
 Volatile files should stay untracked:
@@ -112,6 +120,16 @@ docs/mingjie-stack/runs/
 ```
 
 Hooks installed with `./setup --hooks` may call `mingjie-harness` automatically to surface state at session start and append command evidence after tool use.
+
+## Run Retention
+
+When runs grow too large, summarize before deleting raw artifacts:
+
+- Keep the newest unpinned runs; default retention is 10.
+- `runs prune` is a dry-run preview unless `--yes` is passed.
+- `runs pin <id>` creates a `PINNED` marker; pinned runs are never pruned.
+- Summaries are written to `RUNS_INDEX.md` and `runs/archive/YYYY-MM.md`.
+- Failed, blocked, risky, or surprising runs should be pinned before pruning.
 
 ## Stage Transitions
 

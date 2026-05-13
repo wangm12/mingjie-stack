@@ -118,6 +118,9 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("docs/mingjie-stack/STATE.md", stack_text)
         self.assertIn("legacy `.mingjie/STATE.md`", text)
         self.assertIn("mingjie-harness init", text)
+        self.assertIn("Run Retention", text)
+        self.assertIn("runs prune", text)
+        self.assertIn("PINNED", text)
 
     def test_stack_documents_hook_policy(self):
         text = (SKILLS / "mingjie-stack" / "SKILL.md").read_text(encoding="utf-8")

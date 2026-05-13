@@ -62,6 +62,7 @@ class SetupScriptsTests(unittest.TestCase):
         self.assertIn("init", result.stdout)
         self.assertIn("start-run", result.stdout)
         self.assertIn("append-evidence", result.stdout)
+        self.assertIn("runs", result.stdout)
 
 
 if __name__ == "__main__":
