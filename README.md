@@ -236,6 +236,10 @@ Manual mode asks before moving on:
 ```text
 Next suggested skill: `mingjie-plan`
 Reason: Intake found commands and no hard blockers.
+Options:
+1. Proceed to `mingjie-plan`.
+2. Discuss extra items before continuing.
+3. Update plan/implementation before continuing.
 Proceed?
 ```
 
@@ -244,6 +248,7 @@ Autopilot announces and continues unless a hard stop appears:
 ```text
 Next suggested skill: `mingjie-plan`
 Autopilot: proceeding because no hard blocker was found.
+Interruption options remain available: discuss extra items, update plan/implementation, or stop.
 ```
 
 ### Bridge
