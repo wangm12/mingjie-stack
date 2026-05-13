@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""One-command setup for mingjie-stack.
+
+Usage:
+  ./setup                         # install CLI, skills, and MCP config
+  ./setup --dry-run               # show what would happen
+  ./setup --cursor-rules          # also generate Cursor rules for current project
+  ./setup --launch --layout 2     # install, then launch claude|codex tmux panes
+  ./setup --launch --layout 3     # install, then launch claude|shell|codex panes
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent
+INSTALL = ROOT / "install"
+CURSOR_RULES = ROOT / "scripts" / "install-cursor-rules"
+BRIDGE = ROOT / "scripts" / "mingjie-bridge"
+LAUNCH_PAIR = ROOT / "scripts" / "launch-pair"
+
+
+def run(cmd: list[str], *, dry_run: bool = False) -> None:
+    printable = " ".join(cmd)
+    if dry_run:
+        print(f"  (dry-run) {printable}", flush=True)
+        return
+    print(f"  {printable}", flush=True)
+    subprocess.run(cmd, check=True)
+
+
+def check_file(path: Path, label: str) -> None:
+    if not path.exists():
+        raise SystemExit(f"missing {label}: {path}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="setup", description="One-command mingjie-stack setup")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would happen, no changes")
+    parser.add_argument(
+        "--cursor-rules",
+        action="store_true",
+        help="Also generate .cursor/rules for --target (default: current directory)",
+    )
+    parser.add_argument(
+        "--target",
+        default=".",
+        help="Target project for --cursor-rules (default: current working directory)",
+    )
+    parser.add_argument(
+        "--launch",
+        action="store_true",
+        help="Launch the paired tmux session after setup",
+    )
+    parser.add_argument(
+        "--layout",
+        choices=("2", "3"),
+        default="2",
+        help="Pane layout for --launch: 2 = claude|codex, 3 = claude|shell|codex",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+
+    print("=" * 44)
+    print("  mingjie-stack setup")
+    print("=" * 44, flush=True)
+
+    check_file(INSTALL, "installer")
+    check_file(CURSOR_RULES, "Cursor rules installer")
+    check_file(BRIDGE, "bridge CLI")
+    check_file(LAUNCH_PAIR, "launch-pair")
+
+    install_cmd = [sys.executable, str(INSTALL), "--yes"]
+    if args.dry_run:
+        install_cmd.append("--dry-run")
+
+    print("\nInstall:", flush=True)
+    run(install_cmd)
+
+    print("\nVerify snippets:", flush=True)
+    run([sys.executable, str(BRIDGE), "config", "--tool", "codex"], dry_run=args.dry_run)
+    run([sys.executable, str(BRIDGE), "config", "--tool", "claude"], dry_run=args.dry_run)
+
+    if args.cursor_rules:
+        print("\nCursor rules:", flush=True)
+        run(
+            [sys.executable, str(CURSOR_RULES), "--target", str(Path(args.target).resolve())],
+            dry_run=args.dry_run,
+        )
+
+    if args.launch:
+        print("\nLaunch:", flush=True)
+        run([str(LAUNCH_PAIR), "--layout", args.layout, "--yes"], dry_run=args.dry_run)
+    else:
+        print("\nNext:")
+        print(f"  launch-pair --layout {args.layout}")
+        print("  launch-pair --layout 3   # include shell pane")
+
+    print("\nDry run complete (no changes made)." if args.dry_run else "\nSetup complete.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

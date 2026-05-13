@@ -5,25 +5,41 @@
 # Override by passing a name as the first argument.
 #
 # Usage:
-#   launch-pair                  # session name = current dir basename
-#   launch-pair my-session       # explicit name
-#   launch-pair --yes            # skip confirmation prompt
-#   launch-pair my-name --yes    # both
+#   launch-pair                         # 3 panes: claude | shell | codex
+#   launch-pair --layout 2              # 2 panes: claude | codex
+#   launch-pair --layout 3              # 3 panes: claude | shell | codex
+#   launch-pair my-session --layout 2   # explicit session name
+#   launch-pair --yes                   # skip confirmation prompt
 set -euo pipefail
 
 ASSUME_YES=0
 NAME_ARG=""
-for arg in "$@"; do
+LAYOUT=3
+while [[ $# -gt 0 ]]; do
+    arg="$1"
     case "$arg" in
         --yes|-y) ASSUME_YES=1 ;;
+        --layout)
+            [[ $# -ge 2 ]] || { echo "missing value for --layout" >&2; exit 2; }
+            LAYOUT="$2"
+            shift
+            ;;
+        --layout=*)
+            LAYOUT="${arg#--layout=}"
+            ;;
         --help|-h)
-            sed -n '2,11p' "$0" | sed 's/^# *//'
+            sed -n '2,12p' "$0" | sed 's/^# *//'
             exit 0
             ;;
         -*) echo "unknown flag: $arg" >&2; exit 2 ;;
         *) NAME_ARG="$arg" ;;
     esac
+    shift
 done
+case "$LAYOUT" in
+    2|3) ;;
+    *) echo "invalid --layout: $LAYOUT (expected 2 or 3)" >&2; exit 2 ;;
+esac
 
 START_DIR="$(pwd)"
 
@@ -54,11 +70,15 @@ if [[ "$ASSUME_YES" != "1" && -t 0 ]]; then
     cat <<EOF
 About to create tmux session: $SESSION
   cwd:     $START_DIR
-  layout:  3 vertical panes
+  layout:  $LAYOUT vertical panes
   pane 0:  aifx agent run claude
-  pane 1:  shell
-  pane 2:  aifx agent run codex
 EOF
+    if [[ "$LAYOUT" == "3" ]]; then
+        echo "  pane 1:  shell"
+        echo "  pane 2:  aifx agent run codex"
+    else
+        echo "  pane 1:  aifx agent run codex"
+    fi
     read -r -p "Proceed? [Y/n]: " ans
     case "${ans:-y}" in
         y|Y|yes|YES) ;;
@@ -66,10 +86,12 @@ EOF
     esac
 fi
 
-# Create session, split into 3 vertical panes, even widths.
+# Create session and split into the requested pane layout.
 tmux new-session -d -s "$SESSION" -c "$START_DIR"
 tmux split-window -h -t "$SESSION:0.0" -c "$START_DIR"
-tmux split-window -h -t "$SESSION:0.1" -c "$START_DIR"
+if [[ "$LAYOUT" == "3" ]]; then
+    tmux split-window -h -t "$SESSION:0.1" -c "$START_DIR"
+fi
 tmux select-layout -t "$SESSION:0" even-horizontal >/dev/null
 
 # Capture pane IDs by index.
@@ -78,7 +100,11 @@ pane_id_at() {
         | awk -v idx="$1" '$1==idx {print $2}'
 }
 PANE_CLAUDE="$(pane_id_at 0)"
-PANE_CODEX="$(pane_id_at 2)"
+if [[ "$LAYOUT" == "3" ]]; then
+    PANE_CODEX="$(pane_id_at 2)"
+else
+    PANE_CODEX="$(pane_id_at 1)"
+fi
 
 # Pre-register agents (auto-register also works as fallback once they call a tool).
 if command -v mingjie-bridge >/dev/null; then

@@ -54,6 +54,25 @@ Requires Python 3.9+, tmux, and stdlib only. No third-party packages.
 From the repo root:
 
 ```bash
+./setup
+```
+
+This runs the installer non-interactively with safe defaults, verifies bridge config snippets, and prints the next `launch-pair` command. It does not overwrite differing existing config unless you run the lower-level installer interactively and approve the overwrite.
+
+Useful setup flags:
+
+```bash
+./setup --dry-run                 # show what would happen
+./setup --cursor-rules            # also generate .cursor/rules for the current project
+./setup --launch --layout 2       # install, then launch claude | codex
+./setup --launch --layout 3       # install, then launch claude | shell | codex
+```
+
+### Installer wizard
+
+For step-by-step prompts:
+
+```bash
 ./install
 ```
 
@@ -271,6 +290,8 @@ To skip the manual tmux + register dance, use `launch-pair` (installed to PATH b
 ```bash
 cd /path/to/your/project
 launch-pair                # session name = current dir basename, asks for confirmation
+launch-pair --layout 2     # claude | codex
+launch-pair --layout 3     # claude | shell | codex
 launch-pair my-name        # explicit name
 launch-pair --yes          # skip confirmation
 ```
@@ -278,9 +299,9 @@ launch-pair --yes          # skip confirmation
 What it does:
 
 1. Creates a tmux session (default name = current directory basename)
-2. Splits into 3 vertical panes: `claude | shell | codex`
+2. Splits into 2 or 3 vertical panes: `claude | codex` or `claude | shell | codex`
 3. Pre-registers both agents (auto-register on first MCP tool call also works as a fallback)
-4. Launches `aifx agent run claude` in pane 0 and `aifx agent run codex` in pane 2
+4. Launches `aifx agent run claude` and `aifx agent run codex`
 5. Attaches you to the session
 
 If the named session already exists, it just attaches — safe to re-run.
