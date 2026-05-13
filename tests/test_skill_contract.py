@@ -56,6 +56,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("Proceed?", text)
         self.assertIn("Discuss extra items", text)
         self.assertIn("Update plan/implementation", text)
+        self.assertIn("exit the active plan/automation", text)
+        self.assertIn("normal discussion mode", text)
 
     def test_harness_scopes_learning(self):
         text = (SKILLS / "mingjie-harness" / "SKILL.md").read_text(encoding="utf-8")

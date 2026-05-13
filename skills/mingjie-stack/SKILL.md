@@ -139,7 +139,7 @@ Next suggested skill: `mingjie-plan`
 Reason: Intake found commands and no hard blockers.
 Options:
 1. Proceed to `mingjie-plan`.
-2. Discuss extra items before continuing.
+2. Discuss extra items outside the active plan.
 3. Update plan/implementation before continuing.
 Proceed?
 ```
@@ -149,7 +149,7 @@ Autopilot format:
 ```text
 Next suggested skill: `mingjie-plan`
 Autopilot: proceeding because no hard blocker was found.
-Interruption options remain available: discuss extra items, update plan/implementation, or stop.
+Interruption options remain available: exit to discussion, update plan/implementation, or stop.
 ```
 
 Rules:
@@ -158,7 +158,8 @@ Rules:
 - In Autopilot, do not wait for approval unless a hard stop or material ambiguity appears.
 - If the next step is optional, name both the default and the alternative.
 - Always include options to discuss extra items or update plan/implementation in manual mode.
-- If the user chooses "Discuss extra items", stay in the current stage or return to `mingjie-frame` if scope/goal changes.
+- If the user chooses "Discuss extra items", exit the active plan/automation, pause stage progression, and switch to normal discussion mode. Do not keep executing the plan while discussion is active.
+- After discussion, resume only when the user explicitly chooses to proceed, update the plan, update the implementation, stop, or restart the workflow.
 - If the user chooses "Update plan/implementation", route to `mingjie-plan` for plan changes or `mingjie-build` for implementation fixes, whichever is appropriate.
 - If a stage ends blocked, do not suggest a build/review/ship skill; suggest the stage that can unblock it, or ask the user for the blocking decision.
 - Record the current stage and next suggested skill in Harness state when Harness is active.
