@@ -33,6 +33,7 @@ mcp/
 scripts/
   mingjie-bridge                 CLI wrapper around AgentBridge
   mingjie-harness                Project-scope Harness state/evidence CLI
+  mingjie-hook                   Claude/Codex hook adapter
   launch-pair                    Create a tmux session with Claude + Codex panes
   install-cursor-rules           Generate .cursor/rules/*.mdc from skills/
 
@@ -40,7 +41,10 @@ install                          Interactive installer (one-liner setup)
 
 templates/
   claude/.mcp.json               Bridge MCP snippet for Claude Code
+  claude/settings-hooks.json     Optional Claude Code hooks snippet
   codex/mcp-config-snippet.toml  Bridge MCP snippet for Codex
+  codex/hooks.json               Optional Codex hooks snippet
+  codex/config-hooks-snippet.toml Optional Codex hook feature snippet
   cursor/.mcp.json               Bridge MCP snippet for Cursor
 
 tests/                           Unit + integration tests for the bridge and skills
@@ -65,6 +69,7 @@ Useful setup flags:
 
 ```bash
 ./setup --dry-run                 # show what would happen
+./setup --hooks                   # also configure optional Claude/Codex hooks
 ./setup --cursor-rules            # also generate .cursor/rules for the current project
 ./setup --launch --layout 2       # install, then launch claude | codex
 ./setup --launch --layout 3       # install, then launch claude | shell | codex
@@ -370,9 +375,28 @@ What it does:
 
 If the named session already exists, it just attaches — safe to re-run.
 
+### Hooks
+
+Hooks are opt-in. They add automatic context, guard checks, evidence capture, and a final verification gate around the skill workflow:
+
+```bash
+./setup --hooks
+```
+
+This installs `mingjie-hook` and merges hook config for Claude Code and Codex. The adapter reads hook JSON from stdin and writes project evidence through `mingjie-harness`.
+
+What the adapter does:
+
+- `SessionStart` / `UserPromptSubmit`: prints current `docs/mingjie-stack/STATE.md` context when present.
+- `PreToolUse` / `PermissionRequest`: blocks destructive git/filesystem commands, unapproved push/deploy actions, and generic GitHub push/PR in Uber repos.
+- `PostToolUse` / `PostToolUseFailure`: appends Bash command evidence to the active Harness run.
+- `Stop`: blocks completion claims when the active run has no fresh `Result: OK` Harness evidence.
+
+Hooks are a workflow backstop, not a complete security boundary. Keep Guard and Review in the skill flow.
+
 ### Model effort hook (Claude Code)
 
-The skills already document the model-effort policy and ask the agent to surface it. To make sure the agent never misses it on stage entry, wire `scripts/model-effort-check` as a `PreToolUse` hook in `~/.claude/settings.json`:
+The older `scripts/model-effort-check` hook is still available if you only want model-effort reminders. To wire it manually as a `PreToolUse` hook in `~/.claude/settings.json`:
 
 ```json
 {
@@ -394,7 +418,7 @@ The skills already document the model-effort policy and ask the agent to surface
 
 Replace `/ABSOLUTE/PATH/TO/mingjie-stack` with this repo's absolute path. The hook fires on every Skill invocation, prints a one-line reminder when entering `mingjie-plan` / `mingjie-review` / `mingjie-build`, and is a no-op otherwise.
 
-Codex has its own hook system, but this repository only ships the Claude-specific `model-effort-check` hook today. Codex model-effort policy currently lives in the skill text until the cross-platform `mingjie-hook` adapter is added.
+The cross-platform `mingjie-hook` adapter above is the preferred default. Keep `model-effort-check` only if you want a narrower hook that does not write Harness evidence or block risky commands.
 
 Bridge data lives at `~/.mingjie-stack/agent-bridge/sessions/<tmux-session>/`.
 

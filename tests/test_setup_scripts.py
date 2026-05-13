@@ -25,6 +25,18 @@ class SetupScriptsTests(unittest.TestCase):
         self.assertIn("Dry run complete", result.stdout)
         self.assertIn("harness", result.stdout)
 
+    def test_setup_hooks_dry_run_is_opt_in(self):
+        result = subprocess.run(
+            [sys.executable, str(SETUP), "--dry-run", "--hooks"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("Hooks:", result.stdout)
+        self.assertIn("--hooks", result.stdout)
+
     def test_launch_pair_help_documents_layout_option(self):
         result = subprocess.run(
             [str(LAUNCH_PAIR), "--help"],

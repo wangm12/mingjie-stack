@@ -16,6 +16,7 @@ Sidecars:
 - `Harness` persists run state, evidence, and scoped learning.
 - `Bridge` coordinates Codex/Claude advice when requested or policy allows.
 - `Multi-Agent Planning` coordinates tmux-based Claude Code/Codex plan drafts when large, risky, unknown, or explicitly requested.
+- `Hooks` optionally add automatic context, Guard checks, evidence capture, and Stop-time verification through Claude/Codex command hooks.
 
 Convergence rule: for planning, building, review, and verification, iterate `Target -> Critique -> Modify -> Verify -> Decide` until the target is reached or a bounded loop exposes a blocker.
 
@@ -115,6 +116,7 @@ In Autopilot:
 - Run local verification and workflow verification before Accept.
 - Fix low-risk mechanical review findings automatically.
 - Keep Bridge and Ship governed by policy below.
+- If hooks are installed, treat hook output as a backstop, not as a replacement for Guard, Review, Verify, or Accept.
 
 ## Autopilot Hard Stops
 
@@ -164,6 +166,19 @@ Default: `off` for tiny/normal work, `review-only` for large/risky work. The use
 - `ship allowed` permits the appropriate non-production ship backend after Guard approval.
 - `deploy allowed` is required for deployment.
 - Uber repos must ship through Uber skills only.
+
+## Hook Policy
+
+Hooks are optional and opt-in through `./setup --hooks`. They use `scripts/mingjie-hook` as a Claude/Codex command hook adapter.
+
+Expected hook behavior:
+
+- `SessionStart` / `UserPromptSubmit`: surface `docs/mingjie-stack/STATE.md` so the agent resumes intentionally.
+- `PreToolUse` / `PermissionRequest`: block destructive git/filesystem commands, unapproved push/deploy actions, and generic GitHub push/PR in Uber repos.
+- `PostToolUse` / `PostToolUseFailure`: append Bash command evidence to the active Harness run.
+- `Stop`: block completion claims when the active run has no fresh `Result: OK` Harness evidence.
+
+Hooks are not a complete security boundary. Always keep Guard before dangerous actions and Verify before completion claims.
 
 ## Stage Skills
 

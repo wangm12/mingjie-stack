@@ -5,6 +5,7 @@ Usage:
   ./install                       # interactive wizard
   ./install --yes                 # accept all defaults non-interactively
   ./install --dry-run             # show what would happen, no changes
+  ./install --hooks               # also configure optional Claude/Codex hooks
   ./install --only claude,codex   # subset: cli|claude|codex|cursor
 """
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,19 +23,26 @@ REPO_ROOT = Path(__file__).resolve().parent
 SKILLS_DIR = REPO_ROOT / "skills"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 MCP_SERVER = REPO_ROOT / "mcp" / "agent_bridge_server.py"
+HOOK_SCRIPT = SCRIPTS_DIR / "mingjie-hook"
 HOME = Path.home()
 
 CLI_LINK = HOME / ".local" / "bin" / "mingjie-bridge"
 HARNESS_LINK = HOME / ".local" / "bin" / "mingjie-harness"
+HOOK_LINK = HOME / ".local" / "bin" / "mingjie-hook"
 LAUNCH_LINK = HOME / ".local" / "bin" / "launch-pair"
 CLAUDE_SKILLS = HOME / ".claude" / "skills"
 CLAUDE_MCP_JSON = HOME / ".claude.json"
+CLAUDE_SETTINGS_JSON = HOME / ".claude" / "settings.json"
 CODEX_SKILLS = HOME / ".codex" / "skills"
 CODEX_TOML = HOME / ".codex" / "config.toml"
+CODEX_HOOKS_JSON = HOME / ".codex" / "hooks.json"
 CURSOR_MCP_JSON = HOME / ".cursor" / "mcp.json"
 
 BRIDGE_NAME = "mingjie-agent-bridge"
 CODEX_SECTION = "[mcp_servers.mingjie_agent_bridge]"
+CLAUDE_HOOKS_TEMPLATE = REPO_ROOT / "templates" / "claude" / "settings-hooks.json"
+CODEX_HOOKS_TEMPLATE = REPO_ROOT / "templates" / "codex" / "hooks.json"
+PATH_PLACEHOLDER = "/ABSOLUTE/PATH/TO/mingjie-stack"
 
 
 def _color(text: str, code: str) -> str:
@@ -156,6 +165,13 @@ def install_cli(assume_yes: bool, dry_run: bool) -> None:
         dry_run,
     )
     _install_one_symlink(
+        HOOK_LINK,
+        HOOK_SCRIPT,
+        "hook",
+        assume_yes,
+        dry_run,
+    )
+    _install_one_symlink(
         LAUNCH_LINK,
         SCRIPTS_DIR / "launch-pair",
         "launch-pair",
@@ -264,10 +280,111 @@ def install_codex_mcp(assume_yes: bool, dry_run: bool) -> None:
     print(f"      {green('✓ Appended')}")
 
 
+def load_hooks_template(path: Path) -> dict:
+    text = path.read_text(encoding="utf-8").replace(PATH_PLACEHOLDER, str(REPO_ROOT))
+    return json.loads(text)
+
+
+def hook_command_set(item: dict) -> set[str]:
+    hooks = item.get("hooks", [])
+    return {
+        hook.get("command", "")
+        for hook in hooks
+        if isinstance(hook, dict) and hook.get("command")
+    }
+
+
+def merge_json_hooks(path: Path, desired: dict, dry_run: bool) -> bool:
+    existing: dict = {}
+    if path.exists():
+        existing = json.loads(path.read_text(encoding="utf-8"))
+
+    hooks = existing.setdefault("hooks", {})
+    changed = False
+    for event, desired_items in desired.get("hooks", {}).items():
+        event_items = hooks.setdefault(event, [])
+        existing_commands = set()
+        for item in event_items:
+            if isinstance(item, dict):
+                existing_commands |= hook_command_set(item)
+        for item in desired_items:
+            if hook_command_set(item) <= existing_commands:
+                continue
+            event_items.append(item)
+            existing_commands |= hook_command_set(item)
+            changed = True
+
+    if changed and not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    return changed
+
+
+def ensure_codex_hooks_feature(path: Path, dry_run: bool) -> bool:
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if re.search(r"(?m)^\s*codex_hooks\s*=\s*true\s*$", text):
+        return False
+
+    lines = text.splitlines()
+    changed = False
+    output: list[str] = []
+    inserted = False
+    for line in lines:
+        output.append(line)
+        if line.strip() == "[features]" and not inserted:
+            output.append("codex_hooks = true")
+            inserted = True
+            changed = True
+
+    if not inserted:
+        if output:
+            output.append("")
+        output.extend(["[features]", "codex_hooks = true"])
+        changed = True
+
+    if changed and not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(output) + "\n", encoding="utf-8")
+    return changed
+
+
+def install_hooks(
+    assume_yes: bool,
+    dry_run: bool,
+    *,
+    configure_claude: bool = True,
+    configure_codex: bool = True,
+) -> None:
+    section("Hooks (opt-in)")
+    print("      Install Claude/Codex hooks for Harness context, Guard checks, evidence capture, and Stop verification.")
+
+    if configure_claude and ask("Configure Claude Code hooks?", default=True, assume_yes=assume_yes):
+        desired = load_hooks_template(CLAUDE_HOOKS_TEMPLATE)
+        changed = merge_json_hooks(CLAUDE_SETTINGS_JSON, desired, dry_run)
+        if changed:
+            print(f"      {gray('(dry-run) would merge Claude hooks') if dry_run else green('✓ Claude hooks merged')}")
+        else:
+            print(f"      {gray('Claude hooks already present')}")
+
+    if configure_codex and ask("Configure Codex hooks?", default=True, assume_yes=assume_yes):
+        desired = load_hooks_template(CODEX_HOOKS_TEMPLATE)
+        changed_hooks = merge_json_hooks(CODEX_HOOKS_JSON, desired, dry_run)
+        changed_feature = ensure_codex_hooks_feature(CODEX_TOML, dry_run)
+        if changed_hooks:
+            print(f"      {gray('(dry-run) would merge Codex hooks') if dry_run else green('✓ Codex hooks merged')}")
+        else:
+            print(f"      {gray('Codex hooks already present')}")
+        if changed_feature:
+            print(f"      {gray('(dry-run) would enable codex_hooks feature') if dry_run else green('✓ codex_hooks feature enabled')}")
+        else:
+            print(f"      {gray('codex_hooks feature already enabled')}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="install", description="mingjie-stack installer")
     parser.add_argument("--yes", action="store_true", help="Accept all defaults non-interactively")
     parser.add_argument("--dry-run", action="store_true", help="Show what would happen, no changes")
+    parser.add_argument("--hooks", action="store_true", help="Also configure optional Claude/Codex hooks")
     parser.add_argument(
         "--only",
         default="",
@@ -301,6 +418,8 @@ def main(argv: list[str] | None = None) -> int:
         install_codex_mcp(args.yes, args.dry_run)
     if do("cursor"):
         install_json_mcp("Cursor", CURSOR_MCP_JSON, args.yes, args.dry_run)
+    if args.hooks:
+        install_hooks(args.yes, args.dry_run, configure_claude=do("claude"), configure_codex=do("codex"))
 
     print()
     print(bold("=" * 44))

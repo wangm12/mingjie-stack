@@ -111,6 +111,8 @@ docs/mingjie-stack/STATE.md
 docs/mingjie-stack/runs/
 ```
 
+Hooks installed with `./setup --hooks` may call `mingjie-harness` automatically to surface state at session start and append command evidence after tool use.
+
 ## Stage Transitions
 
 When Harness is active, record:

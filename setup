@@ -4,6 +4,7 @@
 Usage:
   ./setup                         # install CLI, skills, and MCP config
   ./setup --dry-run               # show what would happen
+  ./setup --hooks                 # also configure optional Claude/Codex hooks
   ./setup --cursor-rules          # also generate Cursor rules for current project
   ./setup --launch --layout 2     # install, then launch claude|codex tmux panes
   ./setup --launch --layout 3     # install, then launch claude|shell|codex panes
@@ -22,6 +23,7 @@ INSTALL = ROOT / "install"
 CURSOR_RULES = ROOT / "scripts" / "install-cursor-rules"
 BRIDGE = ROOT / "scripts" / "mingjie-bridge"
 HARNESS = ROOT / "scripts" / "mingjie-harness"
+HOOK = ROOT / "scripts" / "mingjie-hook"
 LAUNCH_PAIR = ROOT / "scripts" / "launch-pair"
 
 
@@ -46,6 +48,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--cursor-rules",
         action="store_true",
         help="Also generate .cursor/rules for --target (default: current directory)",
+    )
+    parser.add_argument(
+        "--hooks",
+        action="store_true",
+        help="Also configure optional Claude/Codex hooks",
     )
     parser.add_argument(
         "--target",
@@ -77,14 +84,21 @@ def main(argv: list[str] | None = None) -> int:
     check_file(CURSOR_RULES, "Cursor rules installer")
     check_file(BRIDGE, "bridge CLI")
     check_file(HARNESS, "harness CLI")
+    check_file(HOOK, "hook adapter")
     check_file(LAUNCH_PAIR, "launch-pair")
 
     install_cmd = [sys.executable, str(INSTALL), "--yes"]
     if args.dry_run:
         install_cmd.append("--dry-run")
+    if args.hooks:
+        install_cmd.append("--hooks")
 
     print("\nInstall:", flush=True)
     run(install_cmd)
+
+    if args.hooks:
+        print("\nHooks:", flush=True)
+        print("  --hooks enabled; installer will merge optional Claude/Codex hook config.", flush=True)
 
     print("\nVerify snippets:", flush=True)
     run([sys.executable, str(BRIDGE), "config", "--tool", "codex"], dry_run=args.dry_run)

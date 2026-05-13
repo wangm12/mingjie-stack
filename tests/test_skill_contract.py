@@ -119,6 +119,17 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("legacy `.mingjie/STATE.md`", text)
         self.assertIn("mingjie-harness init", text)
 
+    def test_stack_documents_hook_policy(self):
+        text = (SKILLS / "mingjie-stack" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("Hook Policy", text)
+        self.assertIn("./setup --hooks", text)
+        self.assertIn("scripts/mingjie-hook", text)
+        self.assertIn("PreToolUse", text)
+        self.assertIn("PostToolUse", text)
+        self.assertIn("Stop", text)
+        self.assertIn("not a complete security boundary", text)
+
     def test_route_fixtures_are_valid(self):
         fixture = ROOT / "tests" / "fixtures" / "skill_routes.json"
         cases = json.loads(fixture.read_text(encoding="utf-8"))
