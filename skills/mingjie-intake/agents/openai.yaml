@@ -1,0 +1,3 @@
+display_name: Mingjie Intake
+short_description: Auto-discover project commands, docs, risks, repo class, and ship path.
+default_prompt: Use Mingjie Intake to map how this project runs before planning.

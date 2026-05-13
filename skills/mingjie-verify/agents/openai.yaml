@@ -1,0 +1,3 @@
+display_name: Mingjie Verify
+short_description: Verify user-visible or system-visible behavior before acceptance.
+default_prompt: Use Mingjie Verify to prove the requested workflow works end to end.

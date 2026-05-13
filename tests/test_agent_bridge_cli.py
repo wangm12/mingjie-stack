@@ -81,6 +81,7 @@ class AgentBridgeCliTests(unittest.TestCase):
 
         self.assertIn("[mcp_servers.mingjie_agent_bridge]", codex)
         self.assertIn(str(Path(__file__).resolve().parents[1] / "mcp" / "agent_bridge_server.py"), codex)
+        self.assertIn('env_vars = ["TMUX", "TMUX_PANE"', codex)
         self.assertIn('"mingjie-agent-bridge"', claude)
 
 

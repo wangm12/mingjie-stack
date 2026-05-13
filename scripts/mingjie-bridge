@@ -79,6 +79,7 @@ def _print_config(tool: str) -> None:
         print("[mcp_servers.mingjie_agent_bridge]")
         print('command = "python3"')
         print(f'args = ["{SERVER_PATH}"]')
+        print('env_vars = ["TMUX", "TMUX_PANE", "SSH_AUTH_SOCK", "WORKSPACE_ROOT", "DEVPOD_NAME", "UBER_OWNER"]')
         return
 
     print(

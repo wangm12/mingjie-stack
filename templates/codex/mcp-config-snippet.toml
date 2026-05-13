@@ -1,3 +1,4 @@
 [mcp_servers.mingjie_agent_bridge]
 command = "python3"
 args = ["/ABSOLUTE/PATH/TO/mingjie-stack/mcp/agent_bridge_server.py"]
+env_vars = ["TMUX", "TMUX_PANE", "SSH_AUTH_SOCK", "WORKSPACE_ROOT", "DEVPOD_NAME", "UBER_OWNER"]

@@ -1,0 +1,3 @@
+display_name: Mingjie Guard
+short_description: Enforce safety, org workflow, dependency, write-scope, and ship boundaries.
+default_prompt: Use Mingjie Guard to check safety boundaries before continuing.

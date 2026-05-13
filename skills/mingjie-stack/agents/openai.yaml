@@ -1,0 +1,3 @@
+display_name: Mingjie Stack
+short_description: Orchestrate Intake, Frame, Plan, Guard, Build, Review, Verify, Accept, and Ship.
+default_prompt: Use Mingjie Stack to run this task through the appropriate guarded workflow.

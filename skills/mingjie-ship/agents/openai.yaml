@@ -1,0 +1,3 @@
+display_name: Mingjie Ship
+short_description: Choose local, GitHub, internal PR, or Uber delivery after verified acceptance.
+default_prompt: Use Mingjie Ship to package or hand off the verified work safely.

@@ -5,7 +5,7 @@ description: Use after framing to split accepted direction into small executable
 
 # Mingjie Plan
 
-Purpose: split the chosen direction into executable, verifiable work.
+Purpose: split the chosen direction into executable, verifiable work after Intake has identified project commands, risks, repo class, and ship path.
 
 **Before planning**: This stage requires the top-tier model + max effort (see Model Effort Policy in `mingjie-stack`). If the current model is not Claude Opus 4.7 effort:max (Claude Code) or gpt-5.5 effort:extra-high (Codex), stop and ask the user to switch via `/model` before continuing.
 
@@ -17,9 +17,12 @@ Each task must include:
 - Files or areas touched
 - Verification check
 - Dependencies
+- Intake evidence used
+- Guard requirements and hard stops
 - Parallelization status
 - Suggested executor: main agent / subagent / bridge review
 - Full workflow verification, if the change affects a user or system path
+- Ship impact: none / local commit / GitHub / internal PR / Uber workflow
 - Risk
 
 Task format:
@@ -29,10 +32,13 @@ Task format:
 What changes:
 Files/areas:
 Depends on:
+Intake evidence:
+Guard:
 Parallelization: sequential / can run with Task X / must be isolated
 Suggested executor: main agent / subagent / bridge review
 Verification: unit/integration/static checks
 Workflow verification: complete path or E2E check, or "not applicable" with reason
+Ship impact:
 Risk:
 ```
 
@@ -42,6 +48,8 @@ Risk:
 - **Scope pass:** Is any task unnecessary for the stated goal?
 - **Engineering pass:** Are data flow, failure modes, tests, and edge cases clear?
 - **Bridge pass:** If the user requested Codex/Claude coordination, identify exactly what to ask the other agent, what files/context to include, and how the answer will be verified.
+- **Guard pass:** Are destructive actions, dependencies, data writes, security changes, org workflow, and ship authorization handled?
+- **Uber pass:** If Intake marks the repo as Uber, does every diff/PR/review/verify/ship step use the required `uber-dev:*` or `uber-reviewer:*` skills? If not, stop.
 - **Design/UX pass:** Required for user-facing UI; check flow clarity, states, accessibility, and visual quality.
 - **Security/privacy pass:** Required for auth, user data, LLM output, external URLs, shell commands, SQL, payments, or secrets.
 - **DX/API pass:** Required for CLIs, APIs, SDKs, docs, developer onboarding, or config changes.
@@ -54,6 +62,7 @@ When Autopilot is active:
 - Infer conservative defaults from the existing codebase and user request.
 - Ask only when ambiguity can materially change product behavior, data safety, security posture, public API, or user-visible outcome.
 - Create the full plan without waiting for approval.
+- Write/update Harness project state for normal, large, risky, or long-running work.
 - Mark parallel-safe tasks and suggested subagent executors explicitly.
 - Keep tightly coupled, risky, or blocking tasks with the main agent.
 - Include workflow verification before Build starts.
@@ -88,12 +97,13 @@ Loop limits:
 
 ## Parallelization Map
 
-For normal and large plans, explicitly separate:
+For normal and large plans, group work into waves:
 
-- Sequential tasks
-- Parallelizable tasks
-- Risky tasks needing extra review
-- Tasks suitable for subagents
+- Wave 1, Wave 2, etc., with dependencies
+- Sequential tasks inside each wave
+- Parallelizable tasks with disjoint ownership
+- Risky tasks needing Guard/Review
+- Tasks suitable for subagents if the platform permits them
 - Tasks that must stay with the main agent because they are tightly coupled, risky, or blocking
 
 Only mark tasks parallelizable when they have disjoint file/module ownership or a clearly safe integration contract.
@@ -116,6 +126,18 @@ Every plan must distinguish:
 
 If workflow verification is not needed, state why. If it is needed but unavailable, mark the risk before Build starts.
 
+## Ship Map
+
+Every plan must identify the expected ship backend:
+
+- `none`: no packaging requested
+- `local`: local commit only
+- `github`: personal GitHub push only when explicitly allowed
+- `internal-pr`: company/internal PR flow
+- `uber`: required Uber skills
+
+If the repo is Uber and the required Uber skills are unavailable, stop before Build.
+
 ## Rules
 
 - Split large work into small units.
@@ -123,6 +145,7 @@ If workflow verification is not needed, state why. If it is needed but unavailab
 - Mark parallel work in the plan before build starts.
 - Do not use a subagent for implementation unless the plan explicitly marks the task as parallel-safe.
 - Mark bridge work as advisory unless the user explicitly assigned the other agent edit ownership.
+- Mark Guard checks before dependency, data, security, org, parallel, and ship actions.
 - If a plan spans independent subsystems, split it into separate plans.
 - If the plan is too vague to verify, revise before building.
 - Do not proceed to Build while blocking plan criteria are unmet.

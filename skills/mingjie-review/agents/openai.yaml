@@ -1,0 +1,3 @@
+display_name: Mingjie Review
+short_description: Review implementation quality, scope, verification, and production readiness.
+default_prompt: Use Mingjie Review to inspect this work before acceptance.

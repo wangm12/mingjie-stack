@@ -1,0 +1,3 @@
+display_name: Mingjie Build
+short_description: Implement approved plans surgically with TDD, scoped edits, and verified tasks.
+default_prompt: Use Mingjie Build to implement the approved plan with focused tests and checks.

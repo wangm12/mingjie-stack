@@ -1,0 +1,3 @@
+display_name: Mingjie Plan
+short_description: Split accepted work into small, verifiable tasks with risks and ownership.
+default_prompt: Use Mingjie Plan to create a concrete, verifiable implementation plan.

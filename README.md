@@ -1,23 +1,28 @@
 # mingjie-stack
 
-A lean adaptive coding workflow for Claude Code and Codex, plus a tmux-session agent bridge for cross-agent coordination.
+A lean guarded automation workflow for Claude Code and Codex, plus a tmux-session agent bridge for cross-agent coordination.
 
 ```
-Frame -> Plan -> Build -> Review -> Accept
+Intake -> Frame -> Plan -> Guard -> Build -> Review -> Verify -> Accept -> Ship
 ```
 
-Autopilot mode runs the full route end to end with conservative assumptions and stops only on hard blockers (destructive ops, production/data, security ambiguity, scope creep, unsafe parallelism, loop-limit).
+Autopilot mode runs the route end to end with conservative assumptions and stops only on hard blockers: destructive ops, production/data, security ambiguity, org workflow mismatch, scope creep, unsafe parallelism, missing verification, or loop limit.
 
 ## Layout
 
 ```
 skills/                          Canonical skills (source of truth)
   mingjie-stack/                 Orchestrator: routing, autopilot, hard stops
+  mingjie-intake/                Auto-discover project commands, docs, risk, repo class
   mingjie-frame/                 Clarify / challenge / shape / abandon
-  mingjie-plan/                  Split into small verifiable tasks
+  mingjie-plan/                  Split into waves and small verifiable tasks
+  mingjie-guard/                 Safety, org workflow, dependency, ship boundaries
   mingjie-build/                 Implement surgically (TDD where practical)
   mingjie-review/                Production-confidence gate
+  mingjie-verify/                UAT/workflow verification and fix loop
   mingjie-accept/                Final state + fresh verification evidence
+  mingjie-ship/                  Local/GitHub/internal/Uber delivery routing
+  mingjie-harness/               Persistent state, evidence, scoped learning
   mingjie-bridge/                Sidecar: cross-agent coordination
 
 mcp/
@@ -36,7 +41,7 @@ templates/
   codex/mcp-config-snippet.toml  Bridge MCP snippet for Codex
   cursor/.mcp.json               Bridge MCP snippet for Cursor
 
-tests/                           Unit + integration tests for the bridge
+tests/                           Unit + integration tests for the bridge and skills
 .codex-plugin/plugin.json        Codex plugin manifest
 ```
 
@@ -158,20 +163,34 @@ After this, `mingjie-bridge ...` works from any cwd. Without it, the CLI example
 
 ### Autopilot
 
-Trigger phrases (exact, not paraphrased):
+Trigger phrases and clear equivalent intent:
 
 - `autopilot`
 - `minimal interaction`
 - `handle end to end`
 - `use mingjie-stack and proceed`
+- `全自动`
+- `端到端处理`
+- `从0到1`
+- `少问我`
 
-Optional bridge override: append `bridge full`, `bridge review-only`, or `no bridge`.
+If the user says in any language to complete the work autonomously with minimal interaction and stop only on hard blockers, the orchestrator may enter Autopilot after stating assumptions once.
+
+Optional controls:
+
+- Bridge override: append `bridge full`, `bridge review-only`, or `no bridge`
+- Ship authorization: append `ship allowed`
+- Deploy authorization: append `deploy allowed`
 
 Example:
 
 ```
 autopilot — add rate limiting to /api/upload
+全自动 — 给这个 CLI 增加 doctor 命令，最后跑完整测试
+autopilot ship allowed — update README and push this personal GitHub repo
 ```
+
+Uber/internal repos are different: if Intake detects an Uber repo, generic GitHub push/PR/review is prohibited. The agent must use the relevant locked `uber-dev:*` and `uber-reviewer:*` skills, such as `uber-dev:diff-create`, `uber-dev:pr-create`, `uber-dev:verify`, and `uber-reviewer:ureview`. If those skills are unavailable, the task must stop as blocked.
 
 ### Manual route
 
@@ -179,11 +198,34 @@ Pick the lightest route that still protects correctness:
 
 | Size       | Route                                                         |
 |------------|---------------------------------------------------------------|
-| Tiny       | Mini Frame -> Build -> Verify -> Accept                       |
-| Normal     | Frame -> Plan -> Build -> Review -> Accept                    |
-| Large/risky| Frame -> Plan (with parallelization map) -> Worktree -> Build -> Review/QA -> Accept |
+| Tiny       | Intake lite -> Mini Frame -> Guard -> Build -> Verify -> Accept |
+| Normal     | Intake -> Frame -> Plan -> Guard -> Build -> Review -> Verify -> Accept |
+| Large/risky| Intake/map-codebase -> Frame -> Plan (waves) -> Guard -> Worktree -> Build -> Review/QA -> Verify -> Accept -> Ship decision |
 
-Invoke each stage by name (`mingjie-frame`, `mingjie-plan`, etc.) or let the orchestrator route.
+Invoke each stage by name (`mingjie-intake`, `mingjie-frame`, `mingjie-plan`, etc.) or let the orchestrator route.
+
+### Harness
+
+For normal, large, risky, or long-running work, Mingjie Harness may persist project-scope state:
+
+```text
+.mingjie/
+  PROJECT.md
+  STATE.md
+  RUNBOOK.md
+  ROADMAP.md
+  runs/<timestamp>/
+    INTAKE.md
+    PLAN.md
+    GUARD.md
+    EVIDENCE.md
+    REVIEW.md
+    VERIFY.md
+    ACCEPT.md
+    LESSONS.md
+```
+
+Project facts and run evidence can be written automatically. User-scope lessons, org profiles, and global skill changes require explicit approval.
 
 ### Bridge
 

@@ -17,11 +17,13 @@ Purpose: implement surgically.
 - No speculative abstractions.
 - No unrelated cleanup.
 - Use worktrees for large/risky work.
+- Respect the Intake runbook and Guard write scope.
 - Use subagents only for plan-marked parallel-safe tasks.
 - Before using a subagent, confirm the task has explicit file/module ownership, forbidden touch areas, verification command, and integration point.
 - Give parallel agents disjoint file/module ownership.
 - Parallel agents are not alone in the codebase; they must not revert or overwrite others' work.
 - Commit or checkpoint at sensible task boundaries when the repo workflow supports it.
+- If the repo is clean and the task is independently verified, prefer an atomic local commit per completed task; never push from Build.
 - Before destructive commands, force-pushes, data changes, deploys, broad deletes, or autonomous edits, stop and ask for explicit confirmation.
 - When work should be isolated to a directory/module, treat that as a write boundary and do not edit outside it without revising the plan.
 - Use only task-relevant rules/docs/context; do not load broad unrelated skill packs.
@@ -43,10 +45,12 @@ When Autopilot is active:
 
 - Execute the approved plan without asking between tasks.
 - Dispatch subagents automatically only for plan-marked parallel-safe tasks.
+- If platform rules prohibit automatic subagents, run the tasks sequentially in the main agent and note the downgrade.
 - Keep the main agent on blocking, risky, or tightly coupled tasks.
 - Run each task's local verification before considering it done.
 - Run full workflow verification after integrating parallel work.
 - Stop before hard-stop actions: destructive commands, production/data changes, migrations, broad rewrites, or ambiguous product/security decisions.
+- Stop if an Uber repo requires `uber-dev:*` skills and they are unavailable.
 - If a task reveals new scope or invalidates the plan, return to Plan instead of improvising.
 
 ## Task Convergence Loop
@@ -114,3 +118,13 @@ Each subagent prompt must include:
 - Expected final report
 
 Do not dispatch parallel agents that may write the same files unless the user explicitly accepts the merge risk.
+
+## Harness Updates
+
+When Harness is active, update `.mingjie/STATE.md` after each verified task with:
+
+- Task id and status
+- Files changed
+- Verification command and result
+- Commit id, if a local commit was created
+- Next step or blocker

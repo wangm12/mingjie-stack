@@ -49,8 +49,9 @@ def bold(t: str) -> str: return _color(t, "1")
 def ask(prompt: str, default: bool, assume_yes: bool) -> bool:
     suffix = "[Y/n]" if default else "[y/N]"
     if assume_yes:
-        print(f"      {prompt} {suffix}: y (--yes)")
-        return True
+        answer = "y" if default else "n"
+        print(f"      {prompt} {suffix}: {answer} (--yes)")
+        return default
     while True:
         try:
             ans = input(f"      {prompt} {suffix}: ").strip().lower()

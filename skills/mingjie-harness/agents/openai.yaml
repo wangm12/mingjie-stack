@@ -1,0 +1,3 @@
+display_name: Mingjie Harness
+short_description: Persist project state, evidence, runbooks, and approved learning candidates.
+default_prompt: Use Mingjie Harness to preserve run state and evidence across sessions.

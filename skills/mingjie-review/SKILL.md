@@ -13,11 +13,13 @@ Purpose: decide whether the work is production-worthy.
 
 - Goal satisfied
 - Plan/spec compliance
+- Intake and Guard compliance
 - Diff has no unrelated changes
 - Tests/verification are meaningful
 - Verification covers both focused checks and the full affected workflow when applicable
 - Risks are handled or disclosed
 - Bridge responses, if used, were read, verified locally, and not treated as proof by themselves
+- Uber workflow skills were used when Intake marked the repo as Uber
 - UI work has browser QA when relevant
 - Context stayed focused: no broad unrelated rule loading, no unnecessary files, no accidental skill/plugin sprawl
 
@@ -31,6 +33,7 @@ Purpose: decide whether the work is production-worthy.
 - Performance: N+1 queries, blocking sync calls in async paths, avoidable O(n*m) view logic
 - Frontend: console errors, broken flows, accessibility, responsive layout, visual regressions
 - Distribution: CI, release artifacts, version/changelog/docs when relevant
+- Ship path: local/GitHub/internal/Uber backend is correct and authorized
 - Tests: happy path, negative path, regression coverage, meaningful assertions
 - Workflow: complete user/system path still works, including integration boundaries between changed units
 
@@ -62,6 +65,7 @@ When Autopilot is active:
 - Re-run relevant verification after each fix.
 - Stop and report blocked for product, security, data, public API, or large rewrite issues that exceed the stated scope.
 - Use bridge review according to the active bridge policy, and verify accepted findings locally.
+- Stop if an Uber repo used generic GitHub/PR/review/verify flow instead of required Uber skills.
 
 ## Production Confidence Gate
 
@@ -127,5 +131,6 @@ Choose the project-appropriate checks and run them fresh before acceptance:
 - Security/secret scan when relevant
 - Diff review and changed-file review
 - Bridge inbox/thread cleanup when cross-agent coordination was used
+- Harness state/evidence updated when Harness is active
 
 If any required check fails, stop and fix or report blocked status.
