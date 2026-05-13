@@ -13,6 +13,7 @@ Autopilot mode runs the route end to end with conservative assumptions and stops
 ```
 skills/                          Canonical skills (source of truth)
   mingjie-stack/                 Orchestrator: routing, autopilot, hard stops
+    references/                  Workflow references, including multi-agent planning
   mingjie-intake/                Auto-discover project commands, docs, risk, repo class
   mingjie-frame/                 Clarify / challenge / shape / abandon
   mingjie-plan/                  Split into waves and small verifiable tasks
@@ -223,6 +224,40 @@ Pick the lightest route that still protects correctness:
 
 Invoke each stage by name (`mingjie-intake`, `mingjie-frame`, `mingjie-plan`, etc.) or let the orchestrator route.
 
+### Multi-agent planning
+
+Mingjie Stack does not run its own agent runtime. For plan debate, it coordinates Claude Code and Codex in tmux panes, then produces one final `mingjie-plan`.
+
+Use it when you explicitly ask for multiple agents or different planning personalities, or when the work is large, risky, unknown, or high ambiguity:
+
+```text
+Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build
+```
+
+Typical setup:
+
+```bash
+cd /path/to/your/project
+launch-pair --layout 3
+```
+
+Example prompts:
+
+```text
+多个 agent 同时 draft plan，然后综合保守/激进/实用/质疑视角
+different personalities plan debate before implementation
+large risky change, use tmux agents and native subagents if safe
+```
+
+Draft roles:
+
+- `Conservative Planner`: minimal risk, reversible steps, proven patterns
+- `Aggressive Planner`: higher-leverage automation and bolder architecture options
+- `Pragmatic Planner`: fastest reliable implementation sequence
+- `Skeptic-Guard`: hard stops, org/security/git/workflow risks, missing verification
+
+Draft agents are advisory/read-only by default. Claude Code and Codex may use their native subagents only inside the role and ownership constraints in the judged final plan. The main orchestrator must synthesize all drafts into one final plan before Build.
+
 ### Harness
 
 For normal, large, risky, or long-running work, Mingjie Harness may persist project-scope state:
@@ -236,6 +271,14 @@ For normal, large, risky, or long-running work, Mingjie Harness may persist proj
   runs/<timestamp>/
     INTAKE.md
     PLAN.md
+    multi-agent/
+      BRIEF.md
+      draft-conservative.md
+      draft-aggressive.md
+      draft-pragmatic.md
+      draft-skeptic-guard.md
+      synthesis.md
+      final-plan.md
     GUARD.md
     EVIDENCE.md
     REVIEW.md

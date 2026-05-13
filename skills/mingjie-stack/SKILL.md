@@ -15,6 +15,7 @@ Sidecars:
 
 - `Harness` persists run state, evidence, and scoped learning.
 - `Bridge` coordinates Codex/Claude advice when requested or policy allows.
+- `Multi-Agent Planning` coordinates tmux-based Claude Code/Codex plan drafts when large, risky, unknown, or explicitly requested.
 
 Convergence rule: for planning, building, review, and verification, iterate `Target -> Critique -> Modify -> Verify -> Decide` until the target is reached or a bounded loop exposes a blocker.
 
@@ -32,10 +33,59 @@ Do not require those systems to be installed. Apply the distilled behavior direc
 - **Tiny:** Intake lite -> Mini Frame -> Guard -> Build -> Verify -> Accept
 - **Normal:** Intake -> Frame -> Plan -> Guard -> Build -> Review -> Verify -> Accept
 - **Large/risky:** Intake/map-codebase -> Frame -> Plan with waves -> Guard -> Build -> Review/QA -> Verify -> Accept -> Ship decision
+- **Multi-agent planning:** Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build
 - **Rough idea:** Frame first after Intake; valid outcomes include reshape, defer, or abandon
 - **Bug or unexpected behavior:** Intake -> reproduce/root cause -> Plan/Build -> Verify
 
 Use the lightest route that protects correctness. Treat production behavior, data, auth, security, money, migrations, broad UI flows, public APIs, and company-internal workflows as large/risky.
+
+## Multi-Agent Planning
+
+Use this as a workflow layer over Claude Code and Codex, not as a custom agent runtime. Trigger it when the user explicitly asks for multiple agents, plan debate, different planning personalities, or when large/risky/unknown work would benefit from stronger planning pressure.
+
+Default flow:
+
+```text
+Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build
+```
+
+Use tmux panes as visible agent seats: Claude Code, Codex, and optionally shell. Claude Code and Codex may use their native subagents when available, but only within the role and ownership constraints in the judged final plan.
+
+Required plan draft roles:
+
+- `Conservative Planner`: minimal risk, reversible steps, proven patterns.
+- `Aggressive Planner`: higher-leverage automation, bolder architecture options, under-scope challenges.
+- `Pragmatic Planner`: fastest reliable path, dependency order, practical verification.
+- `Skeptic-Guard`: hard stops, org/security/git/workflow risks, unsafe parallelism, missing verification.
+
+Draft agents are advisory/read-only by default. Do not ask them to edit files unless the final plan grants explicit disjoint ownership. Before Build, the orchestrator must synthesize the drafts and produce one final `mingjie-plan` that marks each task as sequential, parallel-safe, bridge-review-only, or native-subagent-allowed.
+
+Bridge messages for draft agents use:
+
+```text
+Goal:
+Context:
+Role:
+Constraints:
+Files:
+Requested action:
+Expected output:
+```
+
+When Harness is active, store evidence at:
+
+```text
+.mingjie/runs/<run-id>/multi-agent/
+  BRIEF.md
+  draft-conservative.md
+  draft-aggressive.md
+  draft-pragmatic.md
+  draft-skeptic-guard.md
+  synthesis.md
+  final-plan.md
+```
+
+Full reference: `references/multi-agent-planning.md`.
 
 ## Autopilot Mode
 
@@ -103,6 +153,7 @@ Never use personal GitHub push, generic PR creation, or generic review as a subs
 - `off`: do not use bridge unless the user asks.
 - `review-only`: use bridge for plan/final review on large or risky work when available.
 - `full`: use bridge for plan and final review whenever available.
+- `multi-agent`: use bridge/tmux seats for role-based plan drafts, synthesis inputs, and advisory review only.
 
 Default: `off` for tiny/normal work, `review-only` for large/risky work. The user can say `bridge full`, `bridge review-only`, or `no bridge`.
 
@@ -127,6 +178,7 @@ Default: `off` for tiny/normal work, `review-only` for large/risky work. The use
 - Use `mingjie-ship` to choose local/GitHub/internal/Uber delivery after acceptance.
 - Use `mingjie-harness` to persist state and learning candidates across sessions.
 - Use `mingjie-bridge` only for explicit or policy-approved cross-agent coordination.
+- Use the Multi-Agent Planning reference when explicit multi-agent planning is requested or large/risky/unknown work needs role-based plan pressure.
 
 ## Stage Transition Prompts
 
@@ -201,6 +253,7 @@ If `.mingjie/STATE.md` exists, use it to infer the next step, then verify it aga
 - Prefer TDD for behavior changes and bug fixes.
 - Use parallel agents only for planned-independent tasks with disjoint ownership and platform permission.
 - Treat Bridge replies as advice until verified locally.
+- Do not build a custom agent runtime; use Claude Code, Codex, tmux seats, Bridge messages, and native subagents where available.
 - Run Guard before crossing safety, org, dependency, or ship boundaries.
 - Review for production readiness and Verify for actual user/system behavior.
 - Never claim completion without fresh verification evidence.

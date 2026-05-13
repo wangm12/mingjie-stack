@@ -59,6 +59,53 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("exit the active plan/automation", text)
         self.assertIn("normal discussion mode", text)
 
+    def test_stack_documents_multi_agent_planning_workflow(self):
+        stack_text = (SKILLS / "mingjie-stack" / "SKILL.md").read_text(encoding="utf-8")
+        reference = SKILLS / "mingjie-stack" / "references" / "multi-agent-planning.md"
+
+        self.assertTrue(reference.exists())
+        ref_text = reference.read_text(encoding="utf-8")
+        combined = f"{stack_text}\n{ref_text}"
+
+        self.assertIn("Multi-Agent Planning", stack_text)
+        self.assertIn("Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build", combined)
+
+        for role in [
+            "Conservative Planner",
+            "Aggressive Planner",
+            "Pragmatic Planner",
+            "Skeptic-Guard",
+        ]:
+            self.assertIn(role, combined)
+
+        for artifact in [
+            "BRIEF.md",
+            "draft-conservative.md",
+            "draft-aggressive.md",
+            "draft-pragmatic.md",
+            "draft-skeptic-guard.md",
+            "synthesis.md",
+            "final-plan.md",
+        ]:
+            self.assertIn(artifact, combined)
+
+        for field in [
+            "Goal:",
+            "Context:",
+            "Role:",
+            "Constraints:",
+            "Files:",
+            "Requested action:",
+            "Expected output:",
+        ]:
+            self.assertIn(field, combined)
+
+        self.assertIn("advisory/read-only", combined)
+        self.assertIn("native subagents", combined)
+        self.assertIn("one final", combined)
+        self.assertIn("Uber", combined)
+        self.assertIn("generic GitHub", combined)
+
     def test_harness_scopes_learning(self):
         text = (SKILLS / "mingjie-harness" / "SKILL.md").read_text(encoding="utf-8")
 
@@ -76,6 +123,19 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("name", case)
             self.assertIn("prompt", case)
             self.assertIn("expected_route", case)
+
+    def test_route_fixtures_cover_multi_agent_planning(self):
+        fixture = ROOT / "tests" / "fixtures" / "skill_routes.json"
+        cases = json.loads(fixture.read_text(encoding="utf-8"))
+        cases_by_name = {case["name"]: case for case in cases}
+
+        for name in [
+            "multi_agent_chinese_plan",
+            "multi_agent_personality_debate",
+            "large_risky_tmux_agents",
+        ]:
+            self.assertIn(name, cases_by_name)
+            self.assertIn("Multi-Agent Plan Drafts", cases_by_name[name]["expected_route"])
 
 
 if __name__ == "__main__":

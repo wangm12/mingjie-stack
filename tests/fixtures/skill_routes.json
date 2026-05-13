@@ -25,6 +25,27 @@
     "generic_github_prohibited": true
   },
   {
+    "name": "multi_agent_chinese_plan",
+    "prompt": "多个 agent 同时 draft plan，然后综合保守/激进/实用/质疑视角",
+    "expected_route": "Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build",
+    "planner_roles": ["Conservative Planner", "Aggressive Planner", "Pragmatic Planner", "Skeptic-Guard"],
+    "drafts_read_only": true
+  },
+  {
+    "name": "multi_agent_personality_debate",
+    "prompt": "different personalities plan debate before implementation",
+    "expected_route": "Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build",
+    "planner_roles": ["Conservative Planner", "Aggressive Planner", "Pragmatic Planner", "Skeptic-Guard"],
+    "drafts_read_only": true
+  },
+  {
+    "name": "large_risky_tmux_agents",
+    "prompt": "large risky change, use tmux agents and native subagents if safe",
+    "expected_route": "Intake -> Frame -> Multi-Agent Plan Drafts -> Synthesis -> Judge Final Plan -> Guard -> Build",
+    "tmux_seats": ["claude", "codex", "shell"],
+    "native_subagents_allowed_with_ownership": true
+  },
+  {
     "name": "personal_github_ship",
     "prompt": "autopilot ship allowed -- update docs and push",
     "expected_route": "Intake -> Frame -> Plan -> Guard -> Build -> Review -> Verify -> Accept -> Ship",
