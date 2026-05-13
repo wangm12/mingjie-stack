@@ -63,6 +63,7 @@ class SetupScriptsTests(unittest.TestCase):
         self.assertIn("start-run", result.stdout)
         self.assertIn("append-evidence", result.stdout)
         self.assertIn("runs", result.stdout)
+        self.assertIn("multi-agent", result.stdout)
 
 
 if __name__ == "__main__":

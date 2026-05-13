@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 
 
@@ -28,6 +29,37 @@ GITIGNORE_ENTRIES = [
     "docs/mingjie-stack/runs/",
 ]
 PINNED_FILE = "PINNED"
+BRIDGE = Path(__file__).resolve().parent / "mingjie-bridge"
+MULTI_AGENT_ROLES = [
+    {
+        "slug": "conservative",
+        "file": "draft-conservative.md",
+        "role": "Conservative Planner",
+        "recipient": "claude",
+        "focus": "minimal risk, reversible changes, small steps, proven patterns",
+    },
+    {
+        "slug": "aggressive",
+        "file": "draft-aggressive.md",
+        "role": "Aggressive Planner",
+        "recipient": "codex",
+        "focus": "higher-leverage automation, bolder architecture options, under-scoping challenges",
+    },
+    {
+        "slug": "pragmatic",
+        "file": "draft-pragmatic.md",
+        "role": "Pragmatic Planner",
+        "recipient": "claude",
+        "focus": "fastest reliable path, dependency order, practical verification",
+    },
+    {
+        "slug": "skeptic-guard",
+        "file": "draft-skeptic-guard.md",
+        "role": "Skeptic-Guard",
+        "recipient": "codex",
+        "focus": "hard stops, org/security/git/workflow risks, unsafe parallelism, missing verification",
+    },
+]
 
 
 def now() -> str:
@@ -124,6 +156,143 @@ def create_run(root: Path, run_id: str) -> Path:
     for name in STANDARD_RUN_FILES:
         write_if_missing(directory / name, f"# {name.removesuffix('.md').title()}\n\n")
     return directory
+
+
+def multi_agent_dir(root: Path, run_id: str) -> Path:
+    return run_dir(root, run_id) / "multi-agent"
+
+
+def multi_agent_brief(goal: str, context: str, constraints: str, files: str) -> str:
+    return "\n".join(
+        [
+            "# Multi-Agent Planning Brief",
+            "",
+            "Goal:",
+            goal or "TBD",
+            "",
+            "Context:",
+            context or "TBD",
+            "",
+            "Constraints:",
+            constraints or "Use Mingjie Stack Guard policy. Draft agents are advisory/read-only by default.",
+            "",
+            "Files:",
+            files or "TBD",
+            "",
+            "Requested action:",
+            "Draft a plan from the assigned role. Do not edit files.",
+            "",
+            "Expected output:",
+            "Recommended approach, task breakdown, risks and hard stops, verification plan, what another plan may miss, confidence level.",
+            "",
+        ]
+    )
+
+
+def role_prompt(brief_path: Path, role: dict[str, str]) -> str:
+    return "\n".join(
+        [
+            f"# {role['role']}",
+            "",
+            f"Brief: `{brief_path.name}`",
+            f"Focus: {role['focus']}",
+            "",
+            "Rules:",
+            "- Advisory/read-only. Do not edit files.",
+            "- Use the shared brief as the source of truth.",
+            "- Surface tradeoffs and hard stops explicitly.",
+            "",
+            "Recommended approach:",
+            "",
+            "Task breakdown:",
+            "",
+            "Risks and hard stops:",
+            "",
+            "Verification plan:",
+            "",
+            "What another plan may miss:",
+            "",
+            "Confidence level:",
+            "",
+        ]
+    )
+
+
+def skeleton_file(title: str, body: list[str]) -> str:
+    return "\n".join([f"# {title}", "", *body, ""])
+
+
+def create_multi_agent_artifacts(
+    root: Path,
+    *,
+    run_id: str,
+    goal: str,
+    context: str,
+    constraints: str,
+    files: str,
+) -> Path:
+    create_run(root, run_id)
+    directory = multi_agent_dir(root, run_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    brief = directory / "BRIEF.md"
+    write_if_missing(brief, multi_agent_brief(goal, context, constraints, files))
+    for role in MULTI_AGENT_ROLES:
+        write_if_missing(directory / role["file"], role_prompt(brief, role))
+    write_if_missing(
+        directory / "synthesis.md",
+        skeleton_file(
+            "Multi-Agent Synthesis",
+            [
+                "Agreements:",
+                "",
+                "Conflicts:",
+                "",
+                "Adopted ideas:",
+                "",
+                "Rejected ideas:",
+                "",
+                "Recommended direction:",
+                "",
+            ],
+        ),
+    )
+    write_if_missing(
+        directory / "final-plan.md",
+        skeleton_file(
+            "Judge Final Plan",
+            [
+                "Final direction:",
+                "",
+                "Tasks:",
+                "",
+                "Parallelization and ownership:",
+                "",
+                "Verification:",
+                "",
+                "Guard requirements:",
+                "",
+            ],
+        ),
+    )
+    return directory
+
+
+def draft_is_ready(path: Path) -> bool:
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    placeholders = [
+        "Recommended approach:\n\nTask breakdown:",
+        "Recommended approach:\r\n\r\nTask breakdown:",
+    ]
+    return not any(placeholder in text for placeholder in placeholders)
+
+
+def skeleton_status(path: Path) -> str:
+    if not path.exists():
+        return "missing"
+    text = path.read_text(encoding="utf-8")
+    return "skeleton" if "Final direction:\n\nTasks:" in text or "Agreements:\n\nConflicts:" in text else "ready"
 
 
 def run_directories(root: Path) -> list[Path]:
@@ -359,6 +528,109 @@ def command_runs_prune(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_multi_agent_init(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    run_id = args.run_id or default_run_id()
+    directory = create_multi_agent_artifacts(
+        root,
+        run_id=run_id,
+        goal=args.goal,
+        context=args.context,
+        constraints=args.constraints,
+        files=args.files,
+    )
+    write_state(root, run_id=run_id, current_stage="multi-agent-plan", next_stage="synthesis", blocker="none")
+    print(f"Initialized multi-agent planning at {directory.relative_to(root)}")
+    return 0
+
+
+def command_multi_agent_status(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    run_id = args.run_id or active_run_id_from_state(root)
+    if not run_id:
+        raise SystemExit("--run-id is required when STATE.md has no active run")
+    directory = multi_agent_dir(root, run_id)
+    if not directory.exists():
+        raise SystemExit(f"multi-agent artifacts not found for run: {run_id}")
+    for role in MULTI_AGENT_ROLES:
+        path = directory / role["file"]
+        status = "ready" if draft_is_ready(path) else "missing"
+        print(f"{role['file']}: {status}")
+    print(f"synthesis.md: {skeleton_status(directory / 'synthesis.md')}")
+    print(f"final-plan.md: {skeleton_status(directory / 'final-plan.md')}")
+    return 0
+
+
+def active_run_id_from_state(root: Path) -> str:
+    _, text = find_state(root)
+    for line in text.splitlines():
+        normalized = line.strip().lstrip("-").strip()
+        if normalized.startswith("run_id:"):
+            value = normalized.split(":", 1)[1].strip()
+            return "" if value == "none" else value
+    return ""
+
+
+def bridge_body(directory: Path, role: dict[str, str]) -> str:
+    return "\n".join(
+        [
+            "Goal:",
+            "Draft a role-specific plan for this Mingjie Stack run.",
+            "",
+            "Context:",
+            f"Read `{(directory / 'BRIEF.md').as_posix()}` and write your response into `{(directory / role['file']).as_posix()}` if explicitly allowed by the user. Otherwise reply with the draft content.",
+            "",
+            "Role:",
+            role["role"],
+            "",
+            "Constraints:",
+            "Advisory/read-only by default. Do not edit files unless the user has explicitly assigned ownership.",
+            "",
+            "Files:",
+            f"{(directory / 'BRIEF.md').as_posix()}",
+            "",
+            "Requested action:",
+            "Produce the required draft sections for this role.",
+            "",
+            "Expected output:",
+            "Recommended approach, task breakdown, risks and hard stops, verification plan, what another plan may miss, confidence level.",
+            "",
+        ]
+    )
+
+
+def command_multi_agent_send_bridge(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    run_id = args.run_id or active_run_id_from_state(root)
+    if not run_id:
+        raise SystemExit("--run-id is required when STATE.md has no active run")
+    directory = multi_agent_dir(root, run_id)
+    if not directory.exists():
+        raise SystemExit(f"multi-agent artifacts not found for run: {run_id}")
+
+    for role in MULTI_AGENT_ROLES:
+        body = bridge_body(directory, role)
+        cmd = [
+            str(BRIDGE),
+            "send",
+            "--from",
+            args.sender,
+            "--to",
+            role["recipient"],
+            "--subject",
+            f"{run_id}: {role['role']} draft",
+            "--body",
+            body,
+            "--file",
+            str(directory / "BRIEF.md"),
+        ]
+        if args.dry_run:
+            print(" ".join(cmd))
+            continue
+        subprocess.run(cmd, cwd=root, check=True)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mingjie-harness")
     parser.add_argument("--root", default=".", help="Project root (default: current directory)")
@@ -414,6 +686,27 @@ def build_parser() -> argparse.ArgumentParser:
     runs_unpin = runs_subparsers.add_parser("unpin", help="Allow a run to be pruned")
     runs_unpin.add_argument("run_id")
     runs_unpin.set_defaults(func=command_runs_unpin)
+
+    multi_agent = subparsers.add_parser("multi-agent", help="Create and manage multi-agent planning artifacts")
+    multi_agent_subparsers = multi_agent.add_subparsers(dest="multi_agent_command", required=True)
+
+    multi_agent_init = multi_agent_subparsers.add_parser("init", help="Create brief, role drafts, synthesis, and final plan skeletons")
+    multi_agent_init.add_argument("--run-id", default="", help="Run id (default: timestamp)")
+    multi_agent_init.add_argument("--goal", required=True)
+    multi_agent_init.add_argument("--context", default="")
+    multi_agent_init.add_argument("--constraints", default="")
+    multi_agent_init.add_argument("--files", default="")
+    multi_agent_init.set_defaults(func=command_multi_agent_init)
+
+    multi_agent_status = multi_agent_subparsers.add_parser("status", help="Report draft and skeleton status")
+    multi_agent_status.add_argument("--run-id", default="")
+    multi_agent_status.set_defaults(func=command_multi_agent_status)
+
+    multi_agent_bridge = multi_agent_subparsers.add_parser("send-bridge", help="Send role draft requests through mingjie-bridge")
+    multi_agent_bridge.add_argument("--run-id", default="")
+    multi_agent_bridge.add_argument("--sender", default="harness")
+    multi_agent_bridge.add_argument("--dry-run", action="store_true")
+    multi_agent_bridge.set_defaults(func=command_multi_agent_send_bridge)
 
     return parser
 

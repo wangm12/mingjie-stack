@@ -68,3 +68,13 @@ docs/mingjie-stack/runs/<run-id>/multi-agent/
 ```
 
 Project-scope facts and run evidence may be recorded automatically. User-scope, org-scope, or global skill learning still requires explicit approval.
+
+Use the Harness helper when available:
+
+```bash
+mingjie-harness multi-agent init --run-id <id> --goal "Implement X"
+mingjie-harness multi-agent status --run-id <id>
+mingjie-harness multi-agent send-bridge --run-id <id> --dry-run
+```
+
+Run `send-bridge` without `--dry-run` only when bridge coordination is requested or policy-approved.

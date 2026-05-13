@@ -110,6 +110,9 @@ mingjie-harness runs prune --keep 10
 mingjie-harness runs prune --keep 10 --yes
 mingjie-harness runs pin <id>
 mingjie-harness runs unpin <id>
+mingjie-harness multi-agent init --run-id <id> --goal "Implement X"
+mingjie-harness multi-agent status --run-id <id>
+mingjie-harness multi-agent send-bridge --run-id <id> --dry-run
 ```
 
 Volatile files should stay untracked:
@@ -120,6 +123,23 @@ docs/mingjie-stack/runs/
 ```
 
 Hooks installed with `./setup --hooks` may call `mingjie-harness` automatically to surface state at session start and append command evidence after tool use.
+
+## Multi-Agent Planning Artifacts
+
+For multi-agent planning, use Harness to create the shared artifact shape:
+
+```text
+docs/mingjie-stack/runs/<run-id>/multi-agent/
+  BRIEF.md
+  draft-conservative.md
+  draft-aggressive.md
+  draft-pragmatic.md
+  draft-skeptic-guard.md
+  synthesis.md
+  final-plan.md
+```
+
+`multi-agent init` creates role draft templates and skeleton synthesis/final-plan files. `multi-agent status` reports which drafts are still placeholders. `multi-agent send-bridge --dry-run` prints the `mingjie-bridge send` commands before any message is sent.
 
 ## Run Retention
 

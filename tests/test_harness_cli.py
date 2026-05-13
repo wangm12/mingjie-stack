@@ -162,6 +162,73 @@ class HarnessCliTests(unittest.TestCase):
             index = (project / "docs" / "mingjie-stack" / "RUNS_INDEX.md").read_text(encoding="utf-8")
             self.assertIn("20260501-old", index)
 
+    def test_multi_agent_init_creates_brief_roles_and_skeletons(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+
+            result = self.run_harness(
+                "multi-agent",
+                "init",
+                "--run-id",
+                "run-1",
+                "--goal",
+                "Add hooks",
+                "--context",
+                "Existing project uses Mingjie Stack",
+                cwd=project,
+            )
+
+            base = project / "docs" / "mingjie-stack" / "runs" / "run-1" / "multi-agent"
+            self.assertIn("multi-agent", result.stdout)
+            self.assertTrue((base / "BRIEF.md").exists())
+            for name in [
+                "draft-conservative.md",
+                "draft-aggressive.md",
+                "draft-pragmatic.md",
+                "draft-skeptic-guard.md",
+                "synthesis.md",
+                "final-plan.md",
+            ]:
+                self.assertTrue((base / name).exists())
+            self.assertIn("Add hooks", (base / "BRIEF.md").read_text(encoding="utf-8"))
+            self.assertIn("Conservative Planner", (base / "draft-conservative.md").read_text(encoding="utf-8"))
+
+    def test_multi_agent_status_reports_missing_and_ready_drafts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            self.run_harness("multi-agent", "init", "--run-id", "run-1", "--goal", "Plan X", cwd=project)
+
+            result = self.run_harness("multi-agent", "status", "--run-id", "run-1", cwd=project)
+
+            self.assertIn("draft-conservative.md: missing", result.stdout)
+            self.assertIn("final-plan.md: skeleton", result.stdout)
+
+            draft = (
+                project
+                / "docs"
+                / "mingjie-stack"
+                / "runs"
+                / "run-1"
+                / "multi-agent"
+                / "draft-conservative.md"
+            )
+            draft.write_text("# Conservative Planner\n\nRecommended approach:\nShip it.\n", encoding="utf-8")
+
+            result = self.run_harness("multi-agent", "status", "--run-id", "run-1", cwd=project)
+
+            self.assertIn("draft-conservative.md: ready", result.stdout)
+
+    def test_multi_agent_send_bridge_dry_run_prints_commands(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            self.run_harness("multi-agent", "init", "--run-id", "run-1", "--goal", "Plan X", cwd=project)
+
+            result = self.run_harness("multi-agent", "send-bridge", "--run-id", "run-1", "--dry-run", cwd=project)
+
+            self.assertIn("mingjie-bridge send", result.stdout)
+            self.assertIn("--to claude", result.stdout)
+            self.assertIn("--to codex", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

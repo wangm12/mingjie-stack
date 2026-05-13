@@ -324,6 +324,16 @@ mingjie-harness runs unpin <id>
 
 `runs prune` never deletes a run containing `PINNED`. Pruned runs are summarized into `RUNS_INDEX.md` and `runs/archive/YYYY-MM.md` before raw artifacts are removed.
 
+Create multi-agent planning artifacts with:
+
+```bash
+mingjie-harness multi-agent init --run-id <id> --goal "Implement X"
+mingjie-harness multi-agent status --run-id <id>
+mingjie-harness multi-agent send-bridge --run-id <id> --dry-run
+```
+
+This creates `BRIEF.md`, the four role draft files, `synthesis.md`, and `final-plan.md` under `docs/mingjie-stack/runs/<id>/multi-agent/`. `send-bridge` can route advisory draft requests through `mingjie-bridge`; use `--dry-run` first to inspect the messages.
+
 Volatile state is ignored by default:
 
 ```gitignore

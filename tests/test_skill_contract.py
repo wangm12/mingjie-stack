@@ -121,6 +121,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("Run Retention", text)
         self.assertIn("runs prune", text)
         self.assertIn("PINNED", text)
+        self.assertIn("Multi-Agent Planning Artifacts", text)
+        self.assertIn("multi-agent init", text)
 
     def test_stack_documents_hook_policy(self):
         text = (SKILLS / "mingjie-stack" / "SKILL.md").read_text(encoding="utf-8")
