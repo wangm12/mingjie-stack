@@ -14,7 +14,7 @@ Harness can learn, but learning is scoped. Project facts may be written automati
 Default writable location:
 
 ```text
-.mingjie/
+docs/mingjie-stack/
   PROJECT.md
   STATE.md
   RUNBOOK.md
@@ -30,6 +30,8 @@ Default writable location:
     ACCEPT.md
     LESSONS.md
 ```
+
+Use `mingjie-harness init` to create this directory and add ignore rules for volatile state. New writes use `docs/mingjie-stack/`; legacy `.mingjie/STATE.md` is read only for resume compatibility.
 
 Project scope may record automatically:
 
@@ -81,7 +83,7 @@ Never leak org-specific lessons into personal projects unless the lesson is expl
 
 ## Next Step Detection
 
-When `.mingjie/STATE.md` exists, use it to resume:
+When `docs/mingjie-stack/STATE.md` exists, use it to resume. If it is missing but legacy `.mingjie/STATE.md` exists, read the legacy state, verify it against the repo, then write future state to `docs/mingjie-stack/`.
 
 - Current phase
 - Last successful verification
@@ -89,6 +91,25 @@ When `.mingjie/STATE.md` exists, use it to resume:
 - Next planned step
 
 If state conflicts with the actual repo, trust the repo and update Harness before proceeding.
+
+## CLI
+
+Use the project-scope CLI instead of hand-writing state when available:
+
+```bash
+mingjie-harness init
+mingjie-harness start-run
+mingjie-harness update-state --run-id <id> --stage build --next review
+mingjie-harness append-evidence --run-id <id> --title tests --command "python3 -m unittest discover tests" --result OK
+mingjie-harness status
+```
+
+Volatile files should stay untracked:
+
+```text
+docs/mingjie-stack/STATE.md
+docs/mingjie-stack/runs/
+```
 
 ## Stage Transitions
 

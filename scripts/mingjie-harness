@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+"""Project-scope Harness state and evidence CLI for Mingjie Stack."""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime
+from pathlib import Path
+import sys
+
+
+HARNESS_DIR = Path("docs") / "mingjie-stack"
+LEGACY_DIR = Path(".mingjie")
+STANDARD_RUN_FILES = [
+    "INTAKE.md",
+    "PLAN.md",
+    "GUARD.md",
+    "EVIDENCE.md",
+    "REVIEW.md",
+    "VERIFY.md",
+    "ACCEPT.md",
+    "LESSONS.md",
+]
+GITIGNORE_MARKER = "# Mingjie Stack runtime state"
+GITIGNORE_ENTRIES = [
+    "docs/mingjie-stack/STATE.md",
+    "docs/mingjie-stack/runs/",
+]
+
+
+def now() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def default_run_id() -> str:
+    return datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+
+
+def harness_dir(root: Path) -> Path:
+    return root / HARNESS_DIR
+
+
+def legacy_dir(root: Path) -> Path:
+    return root / LEGACY_DIR
+
+
+def write_if_missing(path: Path, content: str) -> bool:
+    if path.exists():
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def ensure_gitignore(root: Path) -> bool:
+    path = root / ".gitignore"
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    missing = [entry for entry in GITIGNORE_ENTRIES if entry not in existing.splitlines()]
+    if not missing:
+        return False
+
+    addition = "\n".join([GITIGNORE_MARKER, *missing, ""])
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    path.write_text(existing + addition, encoding="utf-8")
+    return True
+
+
+def ensure_harness(root: Path) -> Path:
+    base = harness_dir(root)
+    base.mkdir(parents=True, exist_ok=True)
+    write_if_missing(
+        base / "PROJECT.md",
+        "# Mingjie Project\n\nRecord project-specific run, test, build, and ship facts here.\n",
+    )
+    write_if_missing(
+        base / "RUNBOOK.md",
+        "# Mingjie Runbook\n\nRecord repeatable project operations here.\n",
+    )
+    write_if_missing(
+        base / "lessons.md",
+        "# Mingjie Project Lessons\n\nProject-scope lessons only. Do not record secrets.\n",
+    )
+    return base
+
+
+def run_dir(root: Path, run_id: str) -> Path:
+    return harness_dir(root) / "runs" / run_id
+
+
+def write_state(
+    root: Path,
+    *,
+    run_id: str | None,
+    current_stage: str,
+    next_stage: str,
+    blocker: str,
+) -> Path:
+    base = ensure_harness(root)
+    state = base / "STATE.md"
+    lines = [
+        "# Mingjie State",
+        "",
+        f"- run_id: {run_id or 'none'}",
+        f"- current_stage: {current_stage}",
+        f"- next_stage: {next_stage}",
+        f"- blocker: {blocker}",
+        f"- updated_at: {now()}",
+        "",
+    ]
+    state.write_text("\n".join(lines), encoding="utf-8")
+    return state
+
+
+def create_run(root: Path, run_id: str) -> Path:
+    directory = run_dir(root, run_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in STANDARD_RUN_FILES:
+        write_if_missing(directory / name, f"# {name.removesuffix('.md').title()}\n\n")
+    return directory
+
+
+def command_init(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    base = ensure_harness(root)
+    changed_gitignore = ensure_gitignore(root)
+    print(f"Initialized Harness at {base.relative_to(root)}")
+    if changed_gitignore:
+        print("Updated .gitignore for volatile Harness state")
+    return 0
+
+
+def command_start_run(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    run_id = args.id or default_run_id()
+    directory = create_run(root, run_id)
+    write_state(root, run_id=run_id, current_stage=args.stage, next_stage=args.next, blocker="none")
+    print(f"Started run {run_id} at {directory.relative_to(root)}")
+    return 0
+
+
+def command_update_state(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    state = write_state(
+        root,
+        run_id=args.run_id,
+        current_stage=args.stage,
+        next_stage=args.next,
+        blocker=args.blocker,
+    )
+    print(f"Updated {state.relative_to(root)}")
+    return 0
+
+
+def command_append_evidence(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    run_id = args.run_id or default_run_id()
+    directory = create_run(root, run_id)
+    evidence = directory / "EVIDENCE.md"
+    with evidence.open("a", encoding="utf-8") as fh:
+        fh.write(f"\n## {args.title}\n\n")
+        fh.write(f"- Time: {now()}\n")
+        if args.command:
+            fh.write(f"- Command: `{args.command}`\n")
+        fh.write(f"- Result: {args.result}\n")
+        if args.note:
+            fh.write(f"- Note: {args.note}\n")
+    print(f"Appended evidence to {evidence.relative_to(root)}")
+    return 0
+
+
+def find_state(root: Path) -> tuple[str, Path | None]:
+    current = harness_dir(root) / "STATE.md"
+    if current.exists():
+        return "current", current
+    legacy = legacy_dir(root) / "STATE.md"
+    if legacy.exists():
+        return "legacy", legacy
+    return "missing", None
+
+
+def command_status(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    base = harness_dir(root)
+    source, state = find_state(root)
+    print(f"Harness path: {base.relative_to(root)}")
+    print(f"State source: {source}")
+    if state is None:
+        print("State file: none")
+        return 0
+
+    print(f"State file: {state.relative_to(root)}")
+    text = state.read_text(encoding="utf-8").strip()
+    if text:
+        print()
+        print(text)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="mingjie-harness")
+    parser.add_argument("--root", default=".", help="Project root (default: current directory)")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    init = subparsers.add_parser("init", help="Create docs/mingjie-stack and ignore volatile state")
+    init.set_defaults(func=command_init)
+
+    start_run = subparsers.add_parser("start-run", help="Create a run directory and STATE.md")
+    start_run.add_argument("--id", default="", help="Run id (default: timestamp)")
+    start_run.add_argument("--stage", default="started", help="Initial current stage")
+    start_run.add_argument("--next", default="intake", help="Initial next stage")
+    start_run.set_defaults(func=command_start_run)
+
+    update_state = subparsers.add_parser("update-state", help="Write docs/mingjie-stack/STATE.md")
+    update_state.add_argument("--run-id", default="", help="Run id")
+    update_state.add_argument("--stage", required=True, help="Current stage")
+    update_state.add_argument("--next", required=True, help="Next stage")
+    update_state.add_argument("--blocker", default="none", help="Open blocker, if any")
+    update_state.set_defaults(func=command_update_state)
+
+    evidence = subparsers.add_parser("append-evidence", help="Append evidence to a run")
+    evidence.add_argument("--run-id", default="", help="Run id (default: timestamp)")
+    evidence.add_argument("--title", required=True, help="Evidence title")
+    evidence.add_argument("--command", default="", help="Command that produced the evidence")
+    evidence.add_argument("--result", required=True, help="Result summary")
+    evidence.add_argument("--note", default="", help="Optional note")
+    evidence.set_defaults(func=command_append_evidence)
+
+    status = subparsers.add_parser("status", help="Show Harness status")
+    status.set_defaults(func=command_status)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

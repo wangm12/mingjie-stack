@@ -45,7 +45,7 @@ For large/risky work:
 - Plan/build/review convergence loops either reached target or reported blockers.
 - Scope drift checked.
 - Bridge threads marked done or remaining open messages reported when bridge coordination was used.
-- Harness `.mingjie/STATE.md` and latest run evidence considered when Harness was active.
+- Harness `docs/mingjie-stack/STATE.md` and latest run evidence considered when Harness was active.
 - Docs/changelog/release notes considered.
 - PR/merge/deploy state is explicit.
 - Context/tooling stayed lean; no unnecessary plugin/rule/skill installation was introduced.

@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent
 INSTALL = ROOT / "install"
 CURSOR_RULES = ROOT / "scripts" / "install-cursor-rules"
 BRIDGE = ROOT / "scripts" / "mingjie-bridge"
+HARNESS = ROOT / "scripts" / "mingjie-harness"
 LAUNCH_PAIR = ROOT / "scripts" / "launch-pair"
 
 
@@ -75,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     check_file(INSTALL, "installer")
     check_file(CURSOR_RULES, "Cursor rules installer")
     check_file(BRIDGE, "bridge CLI")
+    check_file(HARNESS, "harness CLI")
     check_file(LAUNCH_PAIR, "launch-pair")
 
     install_cmd = [sys.executable, str(INSTALL), "--yes"]

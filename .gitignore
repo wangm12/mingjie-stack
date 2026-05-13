@@ -5,3 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
+
+# Mingjie Stack runtime state
+docs/mingjie-stack/STATE.md
+docs/mingjie-stack/runs/

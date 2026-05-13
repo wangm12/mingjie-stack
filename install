@@ -24,6 +24,7 @@ MCP_SERVER = REPO_ROOT / "mcp" / "agent_bridge_server.py"
 HOME = Path.home()
 
 CLI_LINK = HOME / ".local" / "bin" / "mingjie-bridge"
+HARNESS_LINK = HOME / ".local" / "bin" / "mingjie-harness"
 LAUNCH_LINK = HOME / ".local" / "bin" / "launch-pair"
 CLAUDE_SKILLS = HOME / ".claude" / "skills"
 CLAUDE_MCP_JSON = HOME / ".claude.json"
@@ -144,6 +145,13 @@ def install_cli(assume_yes: bool, dry_run: bool) -> None:
         CLI_LINK,
         SCRIPTS_DIR / "mingjie-bridge",
         "bridge",
+        assume_yes,
+        dry_run,
+    )
+    _install_one_symlink(
+        HARNESS_LINK,
+        SCRIPTS_DIR / "mingjie-harness",
+        "harness",
         assume_yes,
         dry_run,
     )

@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SETUP = ROOT / "setup"
 LAUNCH_PAIR = ROOT / "scripts" / "launch-pair"
+HARNESS = ROOT / "scripts" / "mingjie-harness"
 
 
 class SetupScriptsTests(unittest.TestCase):
@@ -22,6 +23,7 @@ class SetupScriptsTests(unittest.TestCase):
 
         self.assertIn("mingjie-stack setup", result.stdout)
         self.assertIn("Dry run complete", result.stdout)
+        self.assertIn("harness", result.stdout)
 
     def test_launch_pair_help_documents_layout_option(self):
         result = subprocess.run(
@@ -35,6 +37,19 @@ class SetupScriptsTests(unittest.TestCase):
 
         self.assertIn("--layout 2", result.stdout)
         self.assertIn("--layout 3", result.stdout)
+
+    def test_harness_help_documents_core_commands(self):
+        result = subprocess.run(
+            [sys.executable, str(HARNESS), "--help"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("init", result.stdout)
+        self.assertIn("start-run", result.stdout)
+        self.assertIn("append-evidence", result.stdout)
 
 
 if __name__ == "__main__":

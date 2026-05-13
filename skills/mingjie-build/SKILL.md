@@ -121,7 +121,7 @@ Do not dispatch parallel agents that may write the same files unless the user ex
 
 ## Harness Updates
 
-When Harness is active, update `.mingjie/STATE.md` after each verified task with:
+When Harness is active, update `docs/mingjie-stack/STATE.md` after each verified task with:
 
 - Task id and status
 - Files changed

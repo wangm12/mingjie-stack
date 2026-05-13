@@ -57,7 +57,7 @@ The main orchestrator is the judge. It produces one final `mingjie-plan` before 
 When Harness is active, write planning evidence under:
 
 ```text
-.mingjie/runs/<run-id>/multi-agent/
+docs/mingjie-stack/runs/<run-id>/multi-agent/
   BRIEF.md
   draft-conservative.md
   draft-aggressive.md

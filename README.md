@@ -32,6 +32,7 @@ mcp/
 
 scripts/
   mingjie-bridge                 CLI wrapper around AgentBridge
+  mingjie-harness                Project-scope Harness state/evidence CLI
   launch-pair                    Create a tmux session with Claude + Codex panes
   install-cursor-rules           Generate .cursor/rules/*.mdc from skills/
 
@@ -168,16 +169,18 @@ Add the bridge MCP server at `~/.cursor/mcp.json` (user-level, recommended) or `
 
 Cursor CLI uses the same `.cursor/rules/` and MCP config conventions as the IDE, so the steps above cover both. If a future Cursor CLI release diverges, edit `scripts/install-cursor-rules` to retarget.
 
-### CLI on PATH (optional, but needed for the bridge CLI fallback)
+### CLI on PATH (optional, but useful for bridge and Harness)
 
-The bridge MCP server above is the primary interface. If you also want to call `mingjie-bridge` directly from any project (the CLI fallback path the bridge skill mentions), put it on PATH:
+The installer links `mingjie-bridge`, `mingjie-harness`, and `launch-pair` into `~/.local/bin`. For manual install:
 
 ```bash
 mkdir -p ~/.local/bin
 ln -s "$(pwd)/scripts/mingjie-bridge" ~/.local/bin/mingjie-bridge
+ln -s "$(pwd)/scripts/mingjie-harness" ~/.local/bin/mingjie-harness
+ln -s "$(pwd)/scripts/launch-pair" ~/.local/bin/launch-pair
 ```
 
-After this, `mingjie-bridge ...` works from any cwd. Without it, the CLI examples in the bridge skill only resolve from inside this repo.
+After this, the CLI examples work from any cwd. Without it, prefix commands with this repo's `scripts/` path.
 
 ## Quick start
 
@@ -263,11 +266,12 @@ Draft agents are advisory/read-only by default. Claude Code and Codex may use th
 For normal, large, risky, or long-running work, Mingjie Harness may persist project-scope state:
 
 ```text
-.mingjie/
+docs/mingjie-stack/
   PROJECT.md
   STATE.md
   RUNBOOK.md
   ROADMAP.md
+  lessons.md
   runs/<timestamp>/
     INTAKE.md
     PLAN.md
@@ -287,7 +291,24 @@ For normal, large, risky, or long-running work, Mingjie Harness may persist proj
     LESSONS.md
 ```
 
-Project facts and run evidence can be written automatically. User-scope lessons, org profiles, and global skill changes require explicit approval.
+Project facts and run evidence can be written automatically. User-scope lessons, org profiles, and global skill changes require explicit approval. New writes use `docs/mingjie-stack/`; legacy `.mingjie/STATE.md` is still read for resume compatibility.
+
+Initialize or update state with:
+
+```bash
+mingjie-harness init
+mingjie-harness start-run
+mingjie-harness update-state --run-id <id> --stage build --next review
+mingjie-harness append-evidence --run-id <id> --title tests --command "python3 -m unittest discover tests" --result OK
+mingjie-harness status
+```
+
+Volatile state is ignored by default:
+
+```gitignore
+docs/mingjie-stack/STATE.md
+docs/mingjie-stack/runs/
+```
 
 ### Stage transitions
 
@@ -373,7 +394,7 @@ The skills already document the model-effort policy and ask the agent to surface
 
 Replace `/ABSOLUTE/PATH/TO/mingjie-stack` with this repo's absolute path. The hook fires on every Skill invocation, prints a one-line reminder when entering `mingjie-plan` / `mingjie-review` / `mingjie-build`, and is a no-op otherwise.
 
-Codex doesn't use the same hook system, so for Codex the policy lives only in the skill text — works the same way (agent reads, surfaces to user) just without the extra reminder layer.
+Codex has its own hook system, but this repository only ships the Claude-specific `model-effort-check` hook today. Codex model-effort policy currently lives in the skill text until the cross-platform `mingjie-hook` adapter is added.
 
 Bridge data lives at `~/.mingjie-stack/agent-bridge/sessions/<tmux-session>/`.
 

@@ -108,11 +108,16 @@ class SkillContractTests(unittest.TestCase):
 
     def test_harness_scopes_learning(self):
         text = (SKILLS / "mingjie-harness" / "SKILL.md").read_text(encoding="utf-8")
+        stack_text = (SKILLS / "mingjie-stack" / "SKILL.md").read_text(encoding="utf-8")
 
         self.assertIn("Project scope", text)
         self.assertIn("User scope", text)
         self.assertIn("Org scope", text)
         self.assertIn("approval", text.lower())
+        self.assertIn("docs/mingjie-stack/", text)
+        self.assertIn("docs/mingjie-stack/STATE.md", stack_text)
+        self.assertIn("legacy `.mingjie/STATE.md`", text)
+        self.assertIn("mingjie-harness init", text)
 
     def test_route_fixtures_are_valid(self):
         fixture = ROOT / "tests" / "fixtures" / "skill_routes.json"

@@ -75,7 +75,7 @@ Expected output:
 When Harness is active, store evidence at:
 
 ```text
-.mingjie/runs/<run-id>/multi-agent/
+docs/mingjie-stack/runs/<run-id>/multi-agent/
   BRIEF.md
   draft-conservative.md
   draft-aggressive.md
@@ -109,7 +109,7 @@ In Autopilot:
 - Run Intake automatically before Frame/Plan.
 - Announce each stage transition before entering the next skill.
 - Ask no clarifying questions unless ambiguity changes product behavior, data safety, security posture, public API, org workflow, or user-visible outcome.
-- Use Harness to persist `.mingjie/` state when the task is normal, large, risky, or long-running.
+- Use Harness to persist `docs/mingjie-stack/` state when the task is normal, large, risky, or long-running.
 - Use waves for independent work and subagents only when platform rules allow and the Plan marks disjoint ownership.
 - If the platform prohibits automatic subagents, downgrade to sequential main-agent execution and note the constraint.
 - Run local verification and workflow verification before Accept.
@@ -233,15 +233,15 @@ Different stages reward different reasoning budgets. If the current model/effort
 For normal, large, risky, or long-running work, maintain project-scope state:
 
 ```text
-.mingjie/PROJECT.md
-.mingjie/STATE.md
-.mingjie/RUNBOOK.md
-.mingjie/runs/<timestamp>/
+docs/mingjie-stack/PROJECT.md
+docs/mingjie-stack/STATE.md
+docs/mingjie-stack/RUNBOOK.md
+docs/mingjie-stack/runs/<timestamp>/
 ```
 
 Project facts may be written automatically. User-scope, org-scope, or global skill learning requires approval.
 
-If `.mingjie/STATE.md` exists, use it to infer the next step, then verify it against the actual repo before continuing.
+If `docs/mingjie-stack/STATE.md` exists, use it to infer the next step, then verify it against the actual repo before continuing. If only legacy `.mingjie/STATE.md` exists, read it for resume compatibility and write future state to `docs/mingjie-stack/`.
 
 ## Principles
 

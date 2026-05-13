@@ -43,8 +43,8 @@ For Uber repos, generic GitHub ship or generic review is prohibited unless the u
 When Mingjie Harness is active, write or update:
 
 ```text
-.mingjie/RUNBOOK.md
-.mingjie/PROJECT.md
+docs/mingjie-stack/RUNBOOK.md
+docs/mingjie-stack/PROJECT.md
 ```
 
 The runbook is project scope only. Do not write user-level or org-level lessons from Intake without approval.
