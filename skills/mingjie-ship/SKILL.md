@@ -55,3 +55,4 @@ Rollback
 - Push, deploy, merge, release, and production actions require explicit authorization.
 - Never ship with failed or missing required verification unless final state is `blocked` or `deferred`.
 - Report the final ship state: local-only / pushed / PR-created / blocked / not requested.
+- End with a stage transition prompt only if a follow-up is needed, such as babysitting CI, updating a PR, or recording a Harness lesson candidate. Otherwise state that no next skill is needed.

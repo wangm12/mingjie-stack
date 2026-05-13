@@ -19,6 +19,7 @@ Purpose: sharpen or reject the idea before planning.
 - Recommendation
 - Success criteria
 - Open questions
+- Next suggested skill and whether to proceed
 
 ## Perspective Pool
 
@@ -60,6 +61,7 @@ Before recommending custom implementation for non-trivial work:
 - If the best answer is abandon or defer, say that clearly.
 - Ask only questions that materially affect the direction.
 - Do not implement from Frame.
+- End with a stage transition prompt. Usually suggest `mingjie-plan`; if the idea should be abandoned or deferred, suggest `mingjie-accept`.
 
 ## Autopilot Framing
 

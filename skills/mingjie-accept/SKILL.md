@@ -64,3 +64,5 @@ Capture:
 - What evidence supports keeping this lesson?
 
 Do not promote project lessons to user scope, org scope, or skill text without explicit approval.
+
+End with a stage transition prompt only when delivery remains. Usually suggest `mingjie-ship` if shipping was requested or authorized; otherwise state that no next skill is needed.

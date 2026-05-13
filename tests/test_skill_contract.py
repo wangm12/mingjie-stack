@@ -48,6 +48,13 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("uber-reviewer:", text)
         self.assertIn("prohibited", text.lower())
 
+    def test_stack_requires_stage_transition_prompts(self):
+        text = (SKILLS / "mingjie-stack" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("Stage Transition Prompts", text)
+        self.assertIn("Next suggested skill", text)
+        self.assertIn("Proceed?", text)
+
     def test_harness_scopes_learning(self):
         text = (SKILLS / "mingjie-harness" / "SKILL.md").read_text(encoding="utf-8")
 

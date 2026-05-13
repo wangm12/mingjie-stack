@@ -128,3 +128,5 @@ When Harness is active, update `.mingjie/STATE.md` after each verified task with
 - Verification command and result
 - Commit id, if a local commit was created
 - Next step or blocker
+
+End with a stage transition prompt. Usually suggest `mingjie-review`; for tiny tasks with direct verification complete, suggest `mingjie-accept`.

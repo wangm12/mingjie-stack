@@ -41,3 +41,4 @@ Use Intake and Plan to choose the tier. Large/risky work defaults to Standard or
 - If workflow verification is unavailable, disclose the exact gap and risk.
 - If verification fails, create a concrete fix plan; do not hand-wave.
 - For Uber repos, route verification through `uber-dev:verify` when available; otherwise stop under Guard.
+- End with a stage transition prompt. Usually suggest `mingjie-accept`; if verification fails, suggest `mingjie-build` with the fix plan.

@@ -227,6 +227,25 @@ For normal, large, risky, or long-running work, Mingjie Harness may persist proj
 
 Project facts and run evidence can be written automatically. User-scope lessons, org profiles, and global skill changes require explicit approval.
 
+### Stage transitions
+
+Every stage ends by naming the next suggested skill.
+
+Manual mode asks before moving on:
+
+```text
+Next suggested skill: `mingjie-plan`
+Reason: Intake found commands and no hard blockers.
+Proceed?
+```
+
+Autopilot announces and continues unless a hard stop appears:
+
+```text
+Next suggested skill: `mingjie-plan`
+Autopilot: proceeding because no hard blocker was found.
+```
+
 ### Bridge
 
 Cross-agent coordination via tmux panes (assumes `mingjie-bridge` is on PATH; otherwise prefix with `scripts/` from inside the repo):

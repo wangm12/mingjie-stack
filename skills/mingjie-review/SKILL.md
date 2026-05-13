@@ -134,3 +134,5 @@ Choose the project-appropriate checks and run them fresh before acceptance:
 - Harness state/evidence updated when Harness is active
 
 If any required check fails, stop and fix or report blocked status.
+
+End with a stage transition prompt. Usually suggest `mingjie-verify`; if blocking issues remain, suggest `mingjie-build` or `mingjie-plan` with the exact reason.

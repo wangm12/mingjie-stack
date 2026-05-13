@@ -57,6 +57,7 @@ Intent rule: if the user says, in any language, to complete the work autonomousl
 In Autopilot:
 
 - Run Intake automatically before Frame/Plan.
+- Announce each stage transition before entering the next skill.
 - Ask no clarifying questions unless ambiguity changes product behavior, data safety, security posture, public API, org workflow, or user-visible outcome.
 - Use Harness to persist `.mingjie/` state when the task is normal, large, risky, or long-running.
 - Use waves for independent work and subagents only when platform rules allow and the Plan marks disjoint ownership.
@@ -126,6 +127,33 @@ Default: `off` for tiny/normal work, `review-only` for large/risky work. The use
 - Use `mingjie-ship` to choose local/GitHub/internal/Uber delivery after acceptance.
 - Use `mingjie-harness` to persist state and learning candidates across sessions.
 - Use `mingjie-bridge` only for explicit or policy-approved cross-agent coordination.
+
+## Stage Transition Prompts
+
+At the end of every stage, state the next suggested skill and whether user approval is needed.
+
+Manual mode format:
+
+```text
+Next suggested skill: `mingjie-plan`
+Reason: Intake found commands and no hard blockers.
+Proceed?
+```
+
+Autopilot format:
+
+```text
+Next suggested skill: `mingjie-plan`
+Autopilot: proceeding because no hard blocker was found.
+```
+
+Rules:
+
+- Do not silently jump between skills in manual mode.
+- In Autopilot, do not wait for approval unless a hard stop or material ambiguity appears.
+- If the next step is optional, name both the default and the alternative.
+- If a stage ends blocked, do not suggest a build/review/ship skill; suggest the stage that can unblock it, or ask the user for the blocking decision.
+- Record the current stage and next suggested skill in Harness state when Harness is active.
 
 ## Model Effort Policy
 

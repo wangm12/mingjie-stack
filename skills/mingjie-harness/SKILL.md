@@ -90,6 +90,16 @@ When `.mingjie/STATE.md` exists, use it to resume:
 
 If state conflicts with the actual repo, trust the repo and update Harness before proceeding.
 
+## Stage Transitions
+
+When Harness is active, record:
+
+- Current skill/stage
+- Last completed stage
+- Next suggested skill
+- Whether Autopilot is proceeding or waiting for approval
+- Blocker, if any
+
 ## Golden Examples
 
 Use fixtures or run records to validate behavior:
@@ -100,3 +110,4 @@ Use fixtures or run records to validate behavior:
 - Uber route that requires Uber skills
 - Personal GitHub route that requires push authorization
 - Non-English Autopilot trigger route
+- Manual mode stage transition prompt

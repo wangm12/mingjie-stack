@@ -152,3 +152,4 @@ If the repo is Uber and the required Uber skills are unavailable, stop before Bu
 - In Autopilot, proceed to Build automatically once the plan target converges.
 - Do not create heavyweight docs unless risk justifies it.
 - Select language/framework rules only for the current project, not every available ecosystem.
+- End with a stage transition prompt. Usually suggest `mingjie-guard`; if planning is blocked, suggest the specific earlier stage or user decision needed.
