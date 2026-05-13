@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""PreToolUse hook for Claude Code: when a mingjie-stack stage skill fires,
+emit a model-effort reminder so the agent surfaces it to the user.
+
+Wire it into ~/.claude/settings.json as a PreToolUse hook on the Skill tool;
+see README "Model effort hook (Claude Code)" for the snippet.
+"""
+from __future__ import annotations
+
+import json
+import sys
+
+
+# (skill name, recommended posture). Keep in sync with mingjie-stack/SKILL.md.
+_TOP_TIER_STAGES = {
+    "mingjie-plan": "top-tier (Opus 4.7 effort:max)",
+    "mingjie-review": "top-tier (Opus 4.7 effort:max)",
+}
+_STANDARD_STAGES = {
+    "mingjie-build": "standard (Sonnet)",
+}
+
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+    except Exception:
+        return 0  # never block on malformed input
+
+    if data.get("tool_name") != "Skill":
+        return 0
+
+    skill = (data.get("tool_input") or {}).get("skill", "")
+
+    if skill in _TOP_TIER_STAGES:
+        sys.stdout.write(
+            f"[mingjie-stack] Entering {skill}: this stage benefits from "
+            f"{_TOP_TIER_STAGES[skill]}. If not already on it, ask the user to "
+            f"switch via /model before doing the substantive work.\n"
+        )
+    elif skill in _STANDARD_STAGES:
+        sys.stdout.write(
+            f"[mingjie-stack] Entering {skill}: this stage uses "
+            f"{_STANDARD_STAGES[skill]}. If currently on a top-tier model, "
+            f"offer to step down to save effort.\n"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from mcp.agent_bridge_core import AgentBridge
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SERVER_PATH = REPO_ROOT / "mcp" / "agent_bridge_server.py"
+
+
+def _print_json(value) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True))
+
+
+def _body_from_args(args: argparse.Namespace) -> str:
+    if args.body_file:
+        return Path(args.body_file).read_text(encoding="utf-8")
+    if args.body is not None:
+        return args.body
+    raise SystemExit("--body or --body-file is required")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="mingjie-bridge")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    subparsers.add_parser("init")
+
+    register = subparsers.add_parser("register")
+    register.add_argument("agent")
+    register.add_argument("--pane", required=True)
+
+    send = subparsers.add_parser("send")
+    send.add_argument("--from", dest="sender", required=True)
+    send.add_argument("--to", dest="recipient", required=True)
+    send.add_argument("--subject", required=True)
+    send.add_argument("--body")
+    send.add_argument("--body-file")
+    send.add_argument("--file", action="append", dest="files", default=[])
+
+    inbox = subparsers.add_parser("inbox")
+    inbox.add_argument("--for", dest="agent", required=True)
+    inbox.add_argument("--all", action="store_true")
+
+    read = subparsers.add_parser("read")
+    read.add_argument("message_id")
+
+    reply = subparsers.add_parser("reply")
+    reply.add_argument("message_id")
+    reply.add_argument("--from", dest="sender", required=True)
+    reply.add_argument("--body")
+    reply.add_argument("--body-file")
+
+    done = subparsers.add_parser("done")
+    done.add_argument("message_id")
+
+    subparsers.add_parser("threads")
+
+    notify = subparsers.add_parser("notify")
+    notify.add_argument("agent")
+    notify.add_argument("--text")
+
+    config = subparsers.add_parser("config")
+    config.add_argument("--tool", choices=("codex", "claude"), required=True)
+
+    subparsers.add_parser("status")
+    return parser
+
+
+def _print_config(tool: str) -> None:
+    if tool == "codex":
+        print("[mcp_servers.mingjie_agent_bridge]")
+        print('command = "python3"')
+        print(f'args = ["{SERVER_PATH}"]')
+        return
+
+    print(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "mingjie-agent-bridge": {
+                        "command": "python3",
+                        "args": [str(SERVER_PATH)],
+                    }
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+
+    if args.command == "config":
+        _print_config(args.tool)
+        return 0
+
+    bridge = AgentBridge.from_env()
+
+    if args.command == "init":
+        _print_json(bridge.status())
+    elif args.command == "register":
+        _print_json(bridge.register(args.agent, args.pane))
+    elif args.command == "send":
+        _print_json(
+            bridge.send(
+                sender=args.sender,
+                recipient=args.recipient,
+                subject=args.subject,
+                body=_body_from_args(args),
+                files=args.files,
+            )
+        )
+    elif args.command == "inbox":
+        _print_json(bridge.inbox(args.agent, unread_only=not args.all))
+    elif args.command == "read":
+        _print_json(bridge.read(args.message_id))
+    elif args.command == "reply":
+        _print_json(
+            bridge.reply(
+                message_id=args.message_id,
+                sender=args.sender,
+                body=_body_from_args(args),
+            )
+        )
+    elif args.command == "done":
+        _print_json(bridge.mark_done(args.message_id))
+    elif args.command == "threads":
+        _print_json(bridge.threads())
+    elif args.command == "notify":
+        _print_json(bridge.notify(args.agent, args.text))
+    elif args.command == "status":
+        _print_json(bridge.status())
+    else:
+        raise SystemExit(f"unknown command: {args.command}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,38 @@
+{
+  "name": "mingjie-stack",
+  "version": "0.1.0",
+  "description": "A lean adaptive coding workflow with a tmux-session agent bridge for Codex and Claude Code coordination.",
+  "author": {
+    "name": "mingjie-father"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "workflow",
+    "planning",
+    "tdd",
+    "review",
+    "verification",
+    "subagents",
+    "agent-bridge",
+    "mcp",
+    "tmux"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Mingjie Stack",
+    "shortDescription": "Adaptive workflow plus a Codex/Claude tmux-session bridge",
+    "longDescription": "Use Mingjie Stack to challenge rough ideas, split work into verifiable tasks, build surgically, review for production confidence, accept results only after fresh verification, and coordinate Codex with Claude Code through a user-level MCP bridge.",
+    "developerName": "mingjie-father",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use Mingjie Stack for this task.",
+      "Frame this idea before planning or coding."
+    ],
+    "screenshots": []
+  }
+}

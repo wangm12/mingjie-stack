@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# launch-pair: open a tmux session with Claude + Codex panes ready.
+#
+# Default session name is the basename of the current directory.
+# Override by passing a name as the first argument.
+#
+# Usage:
+#   launch-pair                  # session name = current dir basename
+#   launch-pair my-session       # explicit name
+#   launch-pair --yes            # skip confirmation prompt
+#   launch-pair my-name --yes    # both
+set -euo pipefail
+
+ASSUME_YES=0
+NAME_ARG=""
+for arg in "$@"; do
+    case "$arg" in
+        --yes|-y) ASSUME_YES=1 ;;
+        --help|-h)
+            sed -n '2,11p' "$0" | sed 's/^# *//'
+            exit 0
+            ;;
+        -*) echo "unknown flag: $arg" >&2; exit 2 ;;
+        *) NAME_ARG="$arg" ;;
+    esac
+done
+
+START_DIR="$(pwd)"
+
+sanitize() { printf '%s' "$1" | tr -c '[:alnum:]_-' '-' | sed 's/-\+/-/g; s/^-//; s/-$//'; }
+
+DEFAULT_NAME="$(sanitize "$(basename "$START_DIR")")"
+SESSION="${NAME_ARG:-$DEFAULT_NAME}"
+SESSION="$(sanitize "$SESSION")"
+[[ -z "$SESSION" ]] && SESSION="mingjie-pair"
+
+# Sanity checks
+command -v tmux >/dev/null || { echo "error: tmux not installed" >&2; exit 1; }
+command -v aifx >/dev/null || echo "warning: aifx not on PATH; agents may fail to start" >&2
+command -v mingjie-bridge >/dev/null || echo "warning: mingjie-bridge not on PATH; pre-registration will be skipped" >&2
+
+# Already exists -> just attach.
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+    echo "Session '$SESSION' already exists; attaching."
+    if [[ -n "${TMUX:-}" ]]; then
+        exec tmux switch-client -t "$SESSION"
+    else
+        exec tmux attach -t "$SESSION"
+    fi
+fi
+
+# Confirm plan unless --yes or non-interactive.
+if [[ "$ASSUME_YES" != "1" && -t 0 ]]; then
+    cat <<EOF
+About to create tmux session: $SESSION
+  cwd:     $START_DIR
+  layout:  3 vertical panes
+  pane 0:  aifx agent run claude
+  pane 1:  shell
+  pane 2:  aifx agent run codex
+EOF
+    read -r -p "Proceed? [Y/n]: " ans
+    case "${ans:-y}" in
+        y|Y|yes|YES) ;;
+        *) echo "Aborted."; exit 0 ;;
+    esac
+fi
+
+# Create session, split into 3 vertical panes, even widths.
+tmux new-session -d -s "$SESSION" -c "$START_DIR"
+tmux split-window -h -t "$SESSION:0.0" -c "$START_DIR"
+tmux split-window -h -t "$SESSION:0.1" -c "$START_DIR"
+tmux select-layout -t "$SESSION:0" even-horizontal >/dev/null
+
+# Capture pane IDs by index.
+pane_id_at() {
+    tmux list-panes -t "$SESSION:0" -F '#{pane_index} #{pane_id}' \
+        | awk -v idx="$1" '$1==idx {print $2}'
+}
+PANE_CLAUDE="$(pane_id_at 0)"
+PANE_CODEX="$(pane_id_at 2)"
+
+# Pre-register agents (auto-register also works as fallback once they call a tool).
+if command -v mingjie-bridge >/dev/null; then
+    MINGJIE_BRIDGE_SESSION="$SESSION" mingjie-bridge register claude --pane "$PANE_CLAUDE" >/dev/null
+    MINGJIE_BRIDGE_SESSION="$SESSION" mingjie-bridge register codex  --pane "$PANE_CODEX"  >/dev/null
+fi
+
+# Launch agents.
+tmux send-keys -t "$PANE_CLAUDE" "aifx agent run claude" Enter
+tmux send-keys -t "$PANE_CODEX"  "aifx agent run codex"  Enter
+
+# Attach (or switch-client if already inside tmux).
+if [[ -n "${TMUX:-}" ]]; then
+    exec tmux switch-client -t "$SESSION"
+else
+    exec tmux attach -t "$SESSION"
+fi

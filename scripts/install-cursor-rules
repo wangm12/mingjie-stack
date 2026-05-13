@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Generate Cursor MDC rules from mingjie-stack SKILL.md files.
+
+Re-run anytime the canonical skills change. The orchestrator (mingjie-stack)
+is written as alwaysApply: true; every other skill is written as
+agent-requested (description only).
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SKILLS_DIR = REPO_ROOT / "skills"
+ORCHESTRATOR = "mingjie-stack"
+
+
+def convert(skill_path: Path) -> str:
+    text = skill_path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.*?)\n---\n(.*)$", text, re.DOTALL)
+    if not match:
+        raise ValueError(f"missing frontmatter: {skill_path}")
+
+    fm_text, body = match.group(1), match.group(2)
+    description = ""
+    for line in fm_text.splitlines():
+        if line.startswith("description:"):
+            description = line.split(":", 1)[1].strip()
+            break
+    if not description:
+        raise ValueError(f"missing description: {skill_path}")
+
+    name = skill_path.parent.name
+    if name == ORCHESTRATOR:
+        return f"---\ndescription: {description}\nalwaysApply: true\n---\n{body}"
+    return f"---\ndescription: {description}\n---\n{body}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="install-cursor-rules")
+    parser.add_argument(
+        "--target",
+        default=".",
+        help="Target project directory (default: current working dir)",
+    )
+    args = parser.parse_args(argv)
+
+    target = Path(args.target).resolve() / ".cursor" / "rules"
+    target.mkdir(parents=True, exist_ok=True)
+
+    written = []
+    for skill_dir in sorted(SKILLS_DIR.iterdir()):
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue
+        out = target / f"{skill_dir.name}.mdc"
+        out.write_text(convert(skill_md), encoding="utf-8")
+        written.append(out)
+
+    for path in written:
+        print(path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

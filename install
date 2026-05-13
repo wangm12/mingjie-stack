@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""mingjie-stack installer.
+
+Usage:
+  ./install                       # interactive wizard
+  ./install --yes                 # accept all defaults non-interactively
+  ./install --dry-run             # show what would happen, no changes
+  ./install --only claude,codex   # subset: cli|claude|codex|cursor
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent
+SKILLS_DIR = REPO_ROOT / "skills"
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+MCP_SERVER = REPO_ROOT / "mcp" / "agent_bridge_server.py"
+HOME = Path.home()
+
+CLI_LINK = HOME / ".local" / "bin" / "mingjie-bridge"
+LAUNCH_LINK = HOME / ".local" / "bin" / "launch-pair"
+CLAUDE_SKILLS = HOME / ".claude" / "skills"
+CLAUDE_MCP_JSON = HOME / ".claude.json"
+CODEX_SKILLS = HOME / ".codex" / "skills"
+CODEX_TOML = HOME / ".codex" / "config.toml"
+CURSOR_MCP_JSON = HOME / ".cursor" / "mcp.json"
+
+BRIDGE_NAME = "mingjie-agent-bridge"
+CODEX_SECTION = "[mcp_servers.mingjie_agent_bridge]"
+
+
+def _color(text: str, code: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if sys.stdout.isatty() else text
+
+
+def green(t: str) -> str: return _color(t, "32")
+def yellow(t: str) -> str: return _color(t, "33")
+def red(t: str) -> str: return _color(t, "31")
+def gray(t: str) -> str: return _color(t, "90")
+def bold(t: str) -> str: return _color(t, "1")
+
+
+def ask(prompt: str, default: bool, assume_yes: bool) -> bool:
+    suffix = "[Y/n]" if default else "[y/N]"
+    if assume_yes:
+        print(f"      {prompt} {suffix}: y (--yes)")
+        return True
+    while True:
+        try:
+            ans = input(f"      {prompt} {suffix}: ").strip().lower()
+        except EOFError:
+            return default
+        if not ans:
+            return default
+        if ans in ("y", "yes"):
+            return True
+        if ans in ("n", "no"):
+            return False
+
+
+def section(title: str) -> None:
+    print()
+    print(bold(f"▸ {title}"))
+
+
+def check_env() -> None:
+    print(bold("Environment:"))
+    py_ok = sys.version_info >= (3, 9)
+    py_ver = ".".join(str(v) for v in sys.version_info[:3])
+    print(f"  {green('✓') if py_ok else red('✗')} Python {py_ver}")
+
+    tmux_path = shutil.which("tmux")
+    if tmux_path:
+        result = subprocess.run([tmux_path, "-V"], capture_output=True, text=True)
+        print(f"  {green('✓')} {result.stdout.strip() or 'tmux'}")
+    else:
+        print(f"  {yellow('⚠')} tmux not installed (bridge_notify will not work)")
+
+    path_dirs = os.environ.get("PATH", "").split(":")
+    if str(CLI_LINK.parent) in path_dirs:
+        print(f"  {green('✓')} ~/.local/bin on PATH")
+    else:
+        print(f"  {yellow('⚠')} ~/.local/bin NOT on PATH")
+        path_hint = 'export PATH="$HOME/.local/bin:$PATH"'
+        print(f"     Add to ~/.zshrc: {gray(path_hint)}")
+
+
+def detect_agents() -> dict[str, str | None]:
+    found = {
+        "Claude Code": shutil.which("claude"),
+        "Codex": shutil.which("codex"),
+        "Cursor": shutil.which("cursor"),
+        "AIFX": shutil.which("aifx"),
+    }
+    print(bold("Detected:"))
+    for name, path in found.items():
+        if path:
+            print(f"  {green('✓')} {name:<14} {gray(path)}")
+        else:
+            print(f"  {yellow('✗')} {name:<14} {gray('(not found)')}")
+    if found["AIFX"]:
+        print(f"  {gray('   AIFX detected: configs below will be picked up by `aifx agent run <name>`')}")
+    return found
+
+
+def _install_one_symlink(target: Path, source: Path, label: str, assume_yes: bool, dry_run: bool) -> None:
+    print(f"      {label}: {target} -> {source}")
+    if target.is_symlink() or target.exists():
+        try:
+            current = target.resolve()
+        except OSError:
+            current = None
+        if current == source.resolve():
+            print(f"        {gray('Already installed (symlink correct)')}")
+            return
+        print(f"        {yellow('Existing entry differs:')} {current}")
+        if not ask("Overwrite?", default=False, assume_yes=assume_yes):
+            print(f"        {gray('Skipped')}")
+            return
+        if not dry_run:
+            target.unlink()
+    elif not ask("Install?", default=True, assume_yes=assume_yes):
+        print(f"        {gray('Skipped')}")
+        return
+
+    if dry_run:
+        print(f"        {gray('(dry-run) would create symlink')}")
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(source)
+    print(f"        {green('✓ Installed')}")
+
+
+def install_cli(assume_yes: bool, dry_run: bool) -> None:
+    section("CLI on PATH")
+    _install_one_symlink(
+        CLI_LINK,
+        SCRIPTS_DIR / "mingjie-bridge",
+        "bridge",
+        assume_yes,
+        dry_run,
+    )
+    _install_one_symlink(
+        LAUNCH_LINK,
+        SCRIPTS_DIR / "launch-pair",
+        "launch-pair",
+        assume_yes,
+        dry_run,
+    )
+
+
+def install_skills(label: str, target: Path, assume_yes: bool, dry_run: bool) -> None:
+    section(f"{label} skills")
+    print(f"      Symlink {SKILLS_DIR}/* -> {target}/")
+    if not ask("Install?", default=True, assume_yes=assume_yes):
+        print(f"      {gray('Skipped')}")
+        return
+
+    if dry_run:
+        for d in sorted(SKILLS_DIR.iterdir()):
+            print(f"      {gray(f'(dry-run) link {d.name}')}")
+        return
+
+    target.mkdir(parents=True, exist_ok=True)
+    created = 0
+    existing = 0
+    for skill_dir in sorted(SKILLS_DIR.iterdir()):
+        if not (skill_dir / "SKILL.md").exists():
+            continue
+        link = target / skill_dir.name
+        if link.is_symlink() or link.exists():
+            existing += 1
+            continue
+        link.symlink_to(skill_dir)
+        created += 1
+    print(f"      {green('✓')} {created} created, {existing} already existed")
+
+
+def install_json_mcp(label: str, path: Path, assume_yes: bool, dry_run: bool) -> None:
+    section(f"{label} bridge MCP")
+    print(f"      Merge `{BRIDGE_NAME}` into {path}")
+
+    existing: dict = {}
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text())
+        except json.JSONDecodeError as exc:
+            print(f"      {red('✗')} Existing file is not valid JSON: {exc}")
+            return
+
+    servers = existing.get("mcpServers", {})
+    desired = {"command": "python3", "args": [str(MCP_SERVER)]}
+
+    if BRIDGE_NAME in servers:
+        if servers[BRIDGE_NAME] == desired:
+            print(f"      {gray('Already configured (matches desired)')}")
+            return
+        print(f"      {yellow('Existing entry differs:')}")
+        print(f"        current: {gray(json.dumps(servers[BRIDGE_NAME]))}")
+        print(f"        desired: {gray(json.dumps(desired))}")
+        if not ask("Overwrite?", default=False, assume_yes=assume_yes):
+            print(f"      {gray('Skipped (existing entry preserved)')}")
+            return
+    else:
+        other_keys = list(servers.keys())
+        if other_keys:
+            print(f"      {gray(f'Existing servers preserved: {other_keys}')}")
+        if not ask("Configure?", default=True, assume_yes=assume_yes):
+            print(f"      {gray('Skipped')}")
+            return
+
+    if dry_run:
+        print(f"      {gray('(dry-run) would write merged JSON')}")
+        return
+
+    existing.setdefault("mcpServers", {})[BRIDGE_NAME] = desired
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(existing, indent=2) + "\n")
+    print(f"      {green('✓ Merged')}")
+
+
+def install_codex_mcp(assume_yes: bool, dry_run: bool) -> None:
+    section("Codex bridge MCP")
+    print(f"      Append {CODEX_SECTION} to {CODEX_TOML}")
+
+    existing = CODEX_TOML.read_text() if CODEX_TOML.exists() else ""
+    if CODEX_SECTION in existing:
+        print(f"      {gray('Already present (section found)')}")
+        return
+
+    if not ask("Configure?", default=True, assume_yes=assume_yes):
+        print(f"      {gray('Skipped')}")
+        return
+
+    if dry_run:
+        print(f"      {gray('(dry-run) would append snippet')}")
+        return
+
+    snippet = (
+        f"\n{CODEX_SECTION}\n"
+        f'command = "python3"\n'
+        f'args = ["{MCP_SERVER}"]\n'
+        f'env_vars = ["TMUX", "TMUX_PANE", "SSH_AUTH_SOCK", "WORKSPACE_ROOT", "DEVPOD_NAME", "UBER_OWNER"]\n'
+    )
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    CODEX_TOML.parent.mkdir(parents=True, exist_ok=True)
+    CODEX_TOML.write_text(existing + snippet)
+    print(f"      {green('✓ Appended')}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="install", description="mingjie-stack installer")
+    parser.add_argument("--yes", action="store_true", help="Accept all defaults non-interactively")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would happen, no changes")
+    parser.add_argument(
+        "--only",
+        default="",
+        help="Comma-separated subset: cli|claude|codex|cursor (default: all)",
+    )
+    args = parser.parse_args(argv)
+
+    only = {s.strip() for s in args.only.split(",") if s.strip()}
+    valid = {"cli", "claude", "codex", "cursor"}
+    if only - valid:
+        print(red(f"Unknown --only values: {only - valid}"), file=sys.stderr)
+        return 2
+
+    print(bold("=" * 44))
+    print(bold("  mingjie-stack installer"))
+    print(bold("=" * 44))
+    print()
+    check_env()
+    print()
+    detect_agents()
+
+    do = lambda key: not only or key in only
+
+    if do("cli"):
+        install_cli(args.yes, args.dry_run)
+    if do("claude"):
+        install_skills("Claude Code", CLAUDE_SKILLS, args.yes, args.dry_run)
+        install_json_mcp("Claude Code", CLAUDE_MCP_JSON, args.yes, args.dry_run)
+    if do("codex"):
+        install_skills("Codex", CODEX_SKILLS, args.yes, args.dry_run)
+        install_codex_mcp(args.yes, args.dry_run)
+    if do("cursor"):
+        install_json_mcp("Cursor", CURSOR_MCP_JSON, args.yes, args.dry_run)
+
+    print()
+    print(bold("=" * 44))
+    print(green("Done.") if not args.dry_run else yellow("Dry run complete (no changes made)."))
+    print()
+    print("Next:")
+    print(f"  - Restart your agent:    {gray('aifx agent run claude')}  (or codex)")
+    print(f'  - Try autopilot:         {gray("autopilot — say hello in README")}')
+    print(f"  - For Cursor (per-project skills, not done by this installer):")
+    print(f"        {gray(str(SCRIPTS_DIR / 'install-cursor-rules'))}")
+    print(bold("=" * 44))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

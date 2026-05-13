@@ -1,0 +1,3 @@
+display_name: Mingjie Bridge
+short_description: Coordinate Codex and Claude Code through a tmux-session bridge.
+default_prompt: Use Mingjie Bridge to coordinate with the other agent through the shared bridge.
